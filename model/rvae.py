@@ -53,7 +53,7 @@ class RVAE(nn.Module):
 
     def trainer(self, optimizer):
         kl_weight=lambda i: (math.tanh((i - 3500)/1000) + 1)/2
-        def train(i,batch,batch_size,dropout,use_cuda):
+        def train(i,batch,dropout,use_cuda):
             encode_input,decode_input,target=batch
 
             encode_input=Variable(t.from_numpy(encode_input)).long()
@@ -81,22 +81,30 @@ class RVAE(nn.Module):
 
         return train
 
-    def sample(self,seq_len,seed,use_cuda):
-        seed = Variable(t.from_numpy(seed).float())
-        if use_cuda:
-            seed = seed.cuda()
-
-        #start from '>' ...
-        decoder_word_input=np.array([[0]]).reshape(1,-1)
-        decoder_word_input=Variable(t.from_numpy(decoder_word_input).long())
+    def sample(self,seq_len,batch,use_cuda):
+        encode_input,decode_input=batch
+        encode_input=Variable(t.from_numpy(encode_input)).long()
+        decode_input=Variable(t.from_numpy(decode_input)).long()
 
         if use_cuda:
-            decoder_word_input=decoder_word_input.cuda()
+            #sorry
+            encode_input=encode_input.cuda()
+            decode_input=decode_input.cuda()
         
+        encode_input=self.embedding(encode_input)
+        final_state=self.encoder(encode_input)
+        logvar=self.logvar(final_state)
+        mu=self.mu(final_state)
+        std=t.exp(0.5*logvar)
+        z=Variable(std.data.new(std.size()).normal_())
+        if use_cuda:
+            z=z.cuda()
+        z=z*std+mu
+
         res=[]
         init_state=None
         for i in range(seq_len):
-            logits,init_state,_=self(None,decoder_word_input,0.0,init_state=init_state,z=seed)
+            logits,init_state,_=self(None,decode_input,0.0,init_state=init_state,z=z)
             logits=logits.view(-1,self.params.vocab_size)
             prediction=F.softmax(logits)
 
@@ -106,10 +114,10 @@ class RVAE(nn.Module):
             if word==1:
                 break
             res+=[word]
-            decoder_word_input=np.array([[word]]).reshape(1,-1)
-            decoder_word_input=Variable(t.from_numpy(decoder_word_input).long())
+            decode_input=np.array([[word]]).reshape(1,-1)
+            decode_input=Variable(t.from_numpy(decode_input).long())
             if use_cuda:
-                decoder_word_input=decoder_word_input.cuda()
+                decode_input=decode_input.cuda()
         return res
             
 

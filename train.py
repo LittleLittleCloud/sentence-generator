@@ -33,15 +33,19 @@ use_cuda=t.cuda.is_available()
 ce_list=[]
 kld_list=[]
 coef_list=[]
-for i,batch in enumerate(batch_loader.train_next_batch(2)):
-    ce,kld,coef=train_step(i,batch,300,0.2,use_cuda)
+test_batch=batch_loader.test_next_batch(1)
+
+for i,batch in enumerate(batch_loader.train_next_batch(1)):
+    if i%20==0:
+        sample=next(test_batch)
+        sentence=model.sample(10,sample,use_cuda)
+        sentence=[preprocess.index_to_word[i] for i in sentence]
+        print(' '.join(sentence))
+        break
+    ce,kld,coef=train_step(i,batch,0.2,use_cuda)
     if i%10==0:
         print('ten step: ce:{}, kld:{} '.format(ce,kld))
-    if i%20==0:
-        seed = np.random.normal(size=[1, params.latent_variable_size])
-        sentence=model.sample(50,seed,use_cuda)
-        sentence=[preprocess.index_to_word(i) for i in sentence]
-        print(' '.join(sentence))
+
 
 
 np.save('ce_list',np.array(ce_list))

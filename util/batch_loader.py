@@ -52,14 +52,30 @@ class Batch:
     
     def test_next_batch(self,batch_size):
         assert batch_size<len(self.test_index)
-
+        data=self.data
         np.random.shuffle(self.test_index)
         cur=0
-        while cur<len(self.test_index):
+        while cur<len(self.train_index):
             start=cur
-            end=cur+batch_size
+            end=min(cur+batch_size,len(self.train_index))
             cur=end
-            yield self.data[self.test_index[start:end]]
+            encode_input=[data[i] for i in self.train_index[start:end]]
+            decode_input=[[0] for i in self.train_index[start:end]]
+            max_len=max(len(x) for x in encode_input)
+
+            #sorry again
+            for i,line in enumerate(encode_input):
+                to_add=max_len-len(line)
+                encode_input[i]=[2]*to_add+line[::-1]
+            encode_input=np.array(encode_input)
+
+            for i,line in enumerate(decode_input):
+                to_add=max_len+1-len(line)
+                decode_input[i]=line+[2]*to_add
+            decode_input=np.array(decode_input)
+
+            assert decode_input.shape==(encode_input.shape[0],encode_input.shape[1]+1)
+            yield encode_input,decode_input
 
 
 
