@@ -19,12 +19,10 @@ class Encoder(nn.Module):
     def forward(self,input):
 
         [batch_size,seq_len,embed_size]=input.size()
-        print('fuck0',torch.norm(input),input.size())
 
         input=input.view(-1,embed_size)
         input=self.highway(input)
         input=input.view(batch_size,seq_len,embed_size)
-        print('fuck1',torch.norm(input),input.size())
         _,(_,final_state)=self.lstm(input)
         final_state = final_state.view(self.params.encode_num_layer, 2, batch_size, self.params.encode_rnn_size)
         final_state = final_state[-1]

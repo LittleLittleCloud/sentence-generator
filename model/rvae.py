@@ -30,7 +30,6 @@ class RVAE(nn.Module):
         if z is None:
             encode_input=self.embedding(encode_input)
             final_state=self.encoder(encode_input) 
-            print(t.norm(final_state))
             logvar=self.logvar(final_state)
             mu=self.mu(final_state)
             std=t.exp(0.5*logvar)
