@@ -17,6 +17,7 @@ class RVAE(nn.Module):
         self.mu=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
         self.params=params
         self.embedding=Embedding(params)
+        self.i=1
 
     def forward(self, encode_input,decode_input,drop_rate,init_state=None,z=None):
 
@@ -53,7 +54,7 @@ class RVAE(nn.Module):
 
     def trainer(self, optimizer):
         kl_weight=lambda i: (math.tanh((i - 3500)/1000) + 1)/2
-        def train(i,batch,dropout,use_cuda):
+        def train(batch,dropout,use_cuda):
             encode_input,decode_input,target=batch
 
             encode_input=Variable(t.from_numpy(encode_input)).long()
@@ -71,8 +72,9 @@ class RVAE(nn.Module):
             result,_,kld=self(encode_input,decode_input,dropout,init_state=None,z=None)
             result=result.view(-1,self.params.vocab_size)
             ce=F.cross_entropy(result,target)
-            loss=79*ce+kl_weight(i)*kld
-            
+            loss=79*ce+kl_weight(self.i)*kld
+            i=self.i
+            self.i+=1
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -92,6 +94,7 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
         
         encode_input=self.embedding(encode_input)
+
         final_state=self.encoder(encode_input)
         logvar=self.logvar(final_state)
         mu=self.mu(final_state)

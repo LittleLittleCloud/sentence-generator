@@ -12,8 +12,8 @@ class Preprocess:
         self.start_token='>'
         self.end_token='|'
         self.pad_token='_'
-        self.missing_token='$'
-        self.index_to_word=['>','|','_','$']+self.index_to_word
+        self.missing_token='￥$'
+        self.index_to_word=['>','|','_','￥$']+self.index_to_word
         self.vocab_size=len(self.index_to_word)
         
         self.word_to_index={w:i for i,w in enumerate(self.index_to_word)}

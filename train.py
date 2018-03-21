@@ -36,13 +36,13 @@ coef_list=[]
 test_batch=batch_loader.test_next_batch(1)
 
 for i,batch in enumerate(batch_loader.train_next_batch(1)):
-    if i%20==0:
-        sample=next(test_batch)
-        sentence=model.sample(10,sample,use_cuda)
-        sentence=[preprocess.index_to_word[i] for i in sentence]
-        print(' '.join(sentence))
-        break
-    ce,kld,coef=train_step(i,batch,0.2,use_cuda)
+    # if i%20==0:
+    #     sample=next(test_batch)
+    #     sentence=model.sample(10,sample,use_cuda)
+    #     sentence=[preprocess.index_to_word(i) for i in sentence]
+    #     print(' '.join(sentence))
+    #     break
+    ce,kld,coef=train_step(batch,0.2,use_cuda)
     if i%10==0:
         print('ten step: ce:{}, kld:{} '.format(ce,kld))
 
