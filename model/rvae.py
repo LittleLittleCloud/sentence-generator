@@ -55,7 +55,7 @@ class RVAE(nn.Module):
         return [p for p in self.parameters() if p.requires_grad]
 
     def trainer(self, optimizer):
-        kl_weight=lambda i: (math.tanh((i - 3500)/1000) + 1)/2
+        kl_weight=lambda i: (math.tanh((i - 50000)/1000) + 1)/2
         def train(batch,dropout,use_cuda):
             encode_input,decode_input,target=batch
 
