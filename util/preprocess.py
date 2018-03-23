@@ -26,7 +26,7 @@ class Preprocess:
 
         for i,sentence in enumerate(tokens):
             for j,word in enumerate(sentence):
-                tokens[i][j]=self.word_to_index.get(word,self.word_to_index[self.missing_token])
+                tokens[i][j]=self.word_to_index.get(word,self.word_to_index[self.unknown_token])
         return tokens
 
     def wash_data(self,raw_data,split='\n',save=None):
@@ -67,7 +67,6 @@ class Preprocess:
         start_embedding=np.random.rand(300)
         end_embedding=np.random.rand(300)
         pad_embedding=np.random.rand(300)
-        missing_embedding=np.random.rand(300)
         output=np.zeros((self.vocab_size,300))
         for word,i in self.word_to_index.items():
             if word=='>':
@@ -78,9 +77,6 @@ class Preprocess:
                 continue
             if word=='_':
                 output[i]=pad_embedding.copy()
-                continue
-            if word=='$':
-                output[i]=missing_embedding.copy()
                 continue
             output[i]=self.embedding_model[word]
         return output
