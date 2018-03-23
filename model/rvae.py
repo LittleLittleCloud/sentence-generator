@@ -17,7 +17,7 @@ class RVAE(nn.Module):
         self.mu=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
         self.params=params
         self.embedding=Embedding(params)
-        self.i=1
+        self.i=Variable(t.FloatTensor(1),requires_grad=False)
 
     def forward(self, encode_input,decode_input,drop_rate,init_state=None,z=None):
 
@@ -38,7 +38,9 @@ class RVAE(nn.Module):
             if use_cuda:
                 z=z.cuda()
             z=z*std+mu
-            KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1)).mean().squeeze()
+            KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1))
+            KLD=KLD.mean().squeeze()
+            
             
         else:
             KLD=None
@@ -72,8 +74,8 @@ class RVAE(nn.Module):
             result,_,kld=self(encode_input,decode_input,dropout,init_state=None,z=None)
             result=result.view(-1,self.params.vocab_size)
             ce=F.cross_entropy(result,target)
-            loss=79*ce+kl_weight(self.i)*kld
-            i=self.i
+            i=self.i.data.cpu().numpy()[0]           
+            loss=79*ce+kl_weight(i)*kld
             self.i+=1
             optimizer.zero_grad()
             loss.backward()

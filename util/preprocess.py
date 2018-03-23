@@ -1,7 +1,7 @@
 import numpy as np 
 import collections
 from six.moves import cPickle
-
+import re
 class Preprocess:
     '''
         input: raw sentences
@@ -12,8 +12,9 @@ class Preprocess:
         self.start_token='>'
         self.end_token='|'
         self.pad_token='_'
-        self.missing_token='￥$'
-        self.index_to_word=['>','|','_','￥$']+self.index_to_word
+        self.unknown_token='<ukn>'
+        self.digit_token='#'
+        self.index_to_word=['>','|','_','<ukn>','#']+self.index_to_word
         self.vocab_size=len(self.index_to_word)
         
         self.word_to_index={w:i for i,w in enumerate(self.index_to_word)}
@@ -22,16 +23,40 @@ class Preprocess:
     
     def to_sequence(self,raw_sentences):
         tokens=[sentence.split() for sentence in raw_sentences ]
-        # tokens=list(filter(lambda x:len(x)<=self.max_len,tokens))
-        # max_seq_len=self.max_len
-        # print(max_seq_len)
-        # for token in tokens:
-        #     token=['_']*(max_seq_len-len(token))+token
-        # output=np.zeros((len(tokens),max_seq_len))
+
         for i,sentence in enumerate(tokens):
             for j,word in enumerate(sentence):
                 tokens[i][j]=self.word_to_index.get(word,self.word_to_index[self.missing_token])
         return tokens
+
+    def wash_data(self,raw_data,split='\n',save=None):
+        raw_data=raw_data.lower()
+        raw_sentence=raw_data.split(split)
+
+        raw_sentence=[sentence for sentence in raw_sentence if len(sentence.split(' '))>7]   
+        
+        raw_token=[item for i in raw_sentence for item in re.split(r'[ ]+',i)]
+        raw_token_counts=collections.Counter(raw_token)
+        ukn_set=set()
+        for (token,val) in raw_token_counts.items():
+            if val<5:
+                ukn_set|=set(token)
+
+        for i,sentence in enumerate(raw_sentence):
+            tokens=re.split(r'[ ]+',sentence)
+            for j,token in enumerate(tokens):
+                if re.match(r'^\d*$',token):
+                    tokens[j]='#'
+                elif token in ukn_set:
+                    tokens[j]=self.unknown_token
+            raw_sentence[i]=' '.join(tokens)
+        
+        
+        if save:
+            with open(save,'w') as f:
+                f.write('\n'.join(raw_sentence))
+        return raw_sentence
+                    
 
     def embedding(self):
         '''
