@@ -17,6 +17,7 @@ class RVAE(nn.Module):
         self.mu=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
         self.params=params
         self.embedding=Embedding(params)
+        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size)
         self.i=Variable(t.FloatTensor(1),requires_grad=False)
 
     def forward(self, encode_input,decode_input,drop_rate,init_state=None,z=None):
@@ -24,6 +25,7 @@ class RVAE(nn.Module):
         '''
         encode_input: [batch_size,seq_len]
         decode_input: [batch_size,seq_len+2]
+        z: [batch_size,latent_variable_size]
         output: [batch_size,seq_len,vocab_size]
         '''
 
@@ -44,6 +46,9 @@ class RVAE(nn.Module):
             
         else:
             KLD=None
+        [batch_size,latent_variable_size]=z.size()
+        if init_state is None:
+            init_state=(F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size),Variable(t.from_numpy(np.zeros((1,batch_size,self.params.decode_rnn_size))).cuda()))
 
         decode_input=self.embedding(decode_input)
         decode_final_state=self.decoder(decode_input,z,drop_rate,init_state)
@@ -107,7 +112,8 @@ class RVAE(nn.Module):
         z=z*std+mu
 
         res=[]
-        init_state=None
+        [batch_size,_]=z.size()        
+        init_state=(F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size),Variable(t.from_numpy(np.zeros((1,batch_size,self.params.decode_rnn_size))).cuda()))
         for i in range(seq_len):
             logits,init_state,_=self(None,decode_input,0.0,init_state=init_state,z=z)
             logits=logits.view(-1,self.params.vocab_size)
