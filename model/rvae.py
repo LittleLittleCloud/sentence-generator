@@ -17,7 +17,7 @@ class RVAE(nn.Module):
         self.mu=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
         self.params=params
         self.embedding=Embedding(params)
-        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size)
+        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
         self.i=Variable(t.FloatTensor(1),requires_grad=False)
 
     def forward(self, encode_input,decode_input,drop_rate,init_state=None,z=None):
@@ -48,10 +48,10 @@ class RVAE(nn.Module):
             KLD=None
         [batch_size,latent_variable_size]=z.size()
         if init_state is None:
-            init_state=(F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size),Variable(t.from_numpy(np.zeros((1,batch_size,self.params.decode_rnn_size))).cuda()))
-
+            init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
+            print(init_state.size())
         decode_input=self.embedding(decode_input)
-        decode_final_state=self.decoder(decode_input,z,drop_rate,init_state)
+        decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
         return decode_final_state[0],decode_final_state[1],KLD
 
     def learnable_parameters(self):
@@ -60,7 +60,7 @@ class RVAE(nn.Module):
         return [p for p in self.parameters() if p.requires_grad]
 
     def trainer(self, optimizer):
-        kl_weight=lambda i: (math.tanh((i - 50000)/1000) + 1)/2
+        kl_weight=lambda i: (math.tanh((i - 30000)/10000) + 1)/2
         def train(batch,dropout,use_cuda):
             encode_input,decode_input,target=batch
 
@@ -113,7 +113,8 @@ class RVAE(nn.Module):
 
         res=[]
         [batch_size,_]=z.size()        
-        init_state=(F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size),Variable(t.from_numpy(np.zeros((1,batch_size,self.params.decode_rnn_size))).cuda()))
+        init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
+        print(init_state.size())
         for i in range(seq_len):
             logits,init_state,_=self(None,decode_input,0.0,init_state=init_state,z=z)
             logits=logits.view(-1,self.params.vocab_size)
