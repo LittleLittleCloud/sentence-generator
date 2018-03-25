@@ -49,7 +49,6 @@ class RVAE(nn.Module):
         [batch_size,latent_variable_size]=z.size()
         if init_state is None:
             init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
-            print(init_state.size())
         decode_input=self.embedding(decode_input)
         decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
         return decode_final_state[0],decode_final_state[1],KLD
@@ -114,7 +113,6 @@ class RVAE(nn.Module):
         res=[]
         [batch_size,_]=z.size()        
         init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
-        print(init_state.size())
         for i in range(seq_len):
             logits,init_state,_=self(None,decode_input,0.0,init_state=init_state,z=z)
             logits=logits.view(-1,self.params.vocab_size)
