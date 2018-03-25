@@ -16,13 +16,14 @@ class Decoder(nn.Module):
 
     
 
-    def forward(self,input,z,drop_prob=0.0,init_state=None):
+    def forward(self,input,z,drop_prob=0.0,init_state=None,concat=True):
 
         [batch_size,seq_len,embeding_size]=input.size()
         decoder_input = F.dropout(input, drop_prob)
-        z = torch.cat([z] * seq_len, 1).view(batch_size, seq_len, self.params.latent_variable_size)
-        decoder_input = torch.cat([decoder_input, z], 2)
-        # cat z to the end of each word
+        if concat:
+            # cat z to the end of each word
+            z = torch.cat([z] * seq_len, 1).view(batch_size, seq_len, self.params.latent_variable_size)
+            decoder_input = torch.cat([decoder_input, z], 2)
 
 
         rnn_out,final_state=self.lstm(decoder_input,init_state)
