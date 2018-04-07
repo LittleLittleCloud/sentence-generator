@@ -1,4 +1,4 @@
-import torch
+import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 class Decoder(nn.Module):
@@ -16,7 +16,7 @@ class Decoder(nn.Module):
 
     
 
-    def forward(self,input,z,drop_prob=0.0,init_state=None,concat=True):
+    def forward(self,input,z,drop_prob=0.0,init_state=None,concat=True,**args):
 
         [batch_size,seq_len,embeding_size]=input.size()
         decoder_input = F.dropout(input, drop_prob)

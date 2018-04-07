@@ -6,7 +6,7 @@ from gensim.models import KeyedVectors
 from torch.optim import Adam
 import numpy as np
 import torch as t
-
+import random
 embedding_model=KeyedVectors.load_word2vec_format('embedding.bin')
 
 #load data
@@ -22,8 +22,8 @@ input=preprocess.to_sequence(data)
 
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=1400,\
-            decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy')
+params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=100,\
+            decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy')
 model=RVAE(params)
 model=model.cuda()
 optimizer=Adam(model.learnable_parameters(), 1e-3)
@@ -39,10 +39,12 @@ for i,batch in enumerate(batch_loader.train_next_batch(1)):
     # if i%20==0:
     #     sample=next(test_batch)
     #     sentence=model.sample(10,sample,use_cuda)
-    #     sentence=[preprocess.index_to_word(i) for i in sentence]
+    #     sentence=[preprocess.index_to_word[i] for i in sentence]
     #     print(' '.join(sentence))
     #     break
-    ce,kld,coef=train_step(batch,0.2,use_cuda)
+    use_teacher=random.random()>0.5
+    print(use_teacher)
+    ce,kld,coef=train_step(batch,0.2,use_cuda,use_teacher)
     if i%10==0:
         print('ten step: ce:{}, kld:{} '.format(ce,kld))
 
