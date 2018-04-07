@@ -52,7 +52,6 @@ class RVAE(nn.Module):
         [batch_size,latent_variable_size]=z.size()
         if init_state is None:
             init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)[0]
-
         if use_teacher:
             decode_input=self.embedding(decode_input)
             decode_final_state=self.decoder(decode_input,z,drop_rate,init_state,concat=True,c=c)

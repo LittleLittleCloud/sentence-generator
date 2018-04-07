@@ -24,7 +24,7 @@ class Attn(nn.Module):
         '''
         max_len = encoder_outputs.size(1)
         this_batch_size = encoder_outputs.size(0)
-        H = hidden.repeat(1,max_len,1) #[B*T*H]
+        H = hidden.repeat(max_len,1,1).transpose(0,1) #[B*T*H]
         attn_energies = self.score(H,encoder_outputs) # compute attention score
         return F.softmax(attn_energies).unsqueeze(1) # normalize with softmax
 
@@ -56,7 +56,7 @@ class AttnDecoder(nn.Module):
         # self.embedding = nn.Embedding(output_size, embed_size)
         # self.dropout = nn.Dropout(dropout_p)
         self.attn = Attn('concat', params.decode_rnn_size,params.encode_rnn_size)
-        self.gru = nn.GRU(params.latent_variable_size+params.word_embed_size, params.decode_rnn_size, params.decode_num_layer)
+        self.gru = nn.GRU(params.latent_variable_size+params.word_embed_size, params.decode_rnn_size, params.decode_num_layer,batch_first=True)
         self.attn_combine = nn.Linear(params.latent_variable_size+params.word_embed_size+params.encode_rnn_size*2, \
                             params.latent_variable_size+params.word_embed_size )
         self.out = nn.Linear(params.decode_rnn_size, params.vocab_size)
@@ -72,7 +72,7 @@ class AttnDecoder(nn.Module):
         hidden=init_state
 
         for i in range(seq_len):
-            word_input=decoder_input[:,i,:].view(batch_size,1,-1)
+            word_input=decoder_input[:,i,:].contiguous().view(batch_size,1,-1)
             output,hidden=self.one_step(word_input,init_state,c)
             outputs+=[output.unsqueeze(1)]
         

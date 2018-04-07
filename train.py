@@ -22,7 +22,7 @@ input=preprocess.to_sequence(data)
 
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=100,\
+params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=200,\
             decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy')
 model=RVAE(params)
 model=model.cuda()
@@ -35,13 +35,13 @@ kld_list=[]
 coef_list=[]
 test_batch=batch_loader.test_next_batch(1)
 
-for i,batch in enumerate(batch_loader.train_next_batch(1)):
-    # if i%20==0:
-    #     sample=next(test_batch)
-    #     sentence=model.sample(10,sample,use_cuda)
-    #     sentence=[preprocess.index_to_word[i] for i in sentence]
-    #     print(' '.join(sentence))
-    #     break
+for i,batch in enumerate(batch_loader.train_next_batch(2)):
+    if i%20==0:
+        sample=next(test_batch)
+        sentence=model.sample(10,sample,use_cuda)
+        sentence=[preprocess.index_to_word[i] for i in sentence]
+        print(' '.join(sentence))
+        break
     use_teacher=random.random()>0.5
     print(use_teacher)
     ce,kld,coef=train_step(batch,0.2,use_cuda,use_teacher)
