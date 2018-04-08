@@ -55,6 +55,7 @@ class RVAE(nn.Module):
         if use_teacher:
             decode_input=self.embedding(decode_input)
             decode_final_state=self.decoder(decode_input,z,drop_rate,init_state,concat=True,c=c)
+            return decode_final_state[0],decode_final_state[1],KLD
         else:
             [batch_size,seq_len]=decode_input.size()
             decode_input=decode_input[:,0].unsqueeze(1)
@@ -62,9 +63,11 @@ class RVAE(nn.Module):
             results=[]
             for i in range(seq_len):
                 result,init_state=self.decoder(decode_input,z,drop_rate,init_state,concat=True,c=c)
-                results+=[result.view(batch_size,-1)]
-            decode_final_state=(t.cat(results,1).contiguous().view(batch_size,seq_len,self.params.vocab_size),init_state)
-        return decode_final_state[0],decode_final_state[1],KLD
+                result=result.view(batch_size,-1)
+                _,topi=result.data.topk(1)
+                decode_input=self.embedding(Variable(topi,requires_grad=False).long())
+                results+=[result]
+            return t.cat(results,1).contiguous().view(batch_size,seq_len,self.params.vocab_size),init_state.data,KLD
 
     def learnable_parameters(self):
 
