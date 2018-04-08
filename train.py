@@ -22,8 +22,13 @@ input=preprocess.to_sequence(data)
 
 batch_loader=Batch(input,0.7)
 
+<<<<<<< HEAD
 params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=1000,\
             decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy')
+=======
+params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=200,\
+            decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy')
+>>>>>>> 3e58018d05e9c400520c8a2a59a45b2e9b52ff8a
 model=RVAE(params)
 model=model.cuda()
 optimizer=Adam(model.learnable_parameters(), 1e-3)
