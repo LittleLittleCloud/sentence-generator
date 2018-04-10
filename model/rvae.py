@@ -11,6 +11,7 @@ class RVAE(nn.Module):
     def __init__(self,params):
         super(RVAE,self).__init__()
         self.kl_weight=0
+        
         self.encoder=Encoder(params)
         self.decoder=Decoder(params)
         self.logvar=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
