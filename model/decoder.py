@@ -6,7 +6,13 @@ class Decoder(nn.Module):
         super(Decoder,self).__init__()
         self.params=params
 
-        self.lstm=nn.LSTM(  input_size=params.latent_variable_size+params.word_embed_size,
+        # self.lstm=nn.LSTM(  input_size=params.latent_variable_size+params.word_embed_size,
+        #                     hidden_size=params.decode_rnn_size,
+        #                     num_layers=params.decode_num_layer,
+        #                     batch_first=True
+        # )
+        self.gru=nn.GRU( 
+                            input_size=params.latent_variable_size+params.word_embed_size,
                             hidden_size=params.decode_rnn_size,
                             num_layers=params.decode_num_layer,
                             batch_first=True
@@ -25,11 +31,22 @@ class Decoder(nn.Module):
             z = torch.cat([z] * seq_len, 1).view(batch_size, seq_len, self.params.latent_variable_size)
             decoder_input = torch.cat([decoder_input, z], 2)
 
+        out,hidden=self.gru(decoder_input,init_state)
+        out=out.view(-1,self.params.decode_rnn_size)
+        out=self.fc(out)
+        out=out.view(batch_size,self.params.vocab_size)        
+        out=F.softmax(out)
+        return out,hidden
+        # input=decoder_input[0].view(batch_size,1,embeding_size)
+        # for i in range(seq_len):
+        #     out,h=self.gru(input,h)
+        #     if teacher:
+        #         input=decoder_input[i].view(batch_size,1,embeding_size)
 
-        rnn_out,final_state=self.lstm(decoder_input,init_state)
-        rnn_out = rnn_out.contiguous().view(-1, self.params.decode_rnn_size)
-        result = self.fc(rnn_out)
-        result = result.view(batch_size, seq_len, self.params.vocab_size)
+        # rnn_out,final_state=self.lstm(decoder_input,init_state)
+        # rnn_out = rnn_out.contiguous().view(-1, self.params.decode_rnn_size)
+        # result = self.fc(rnn_out)
+        # result = result.view(batch_size, seq_len, self.params.vocab_size)
         
-        return result, final_state
+        # return result, final_state
         
