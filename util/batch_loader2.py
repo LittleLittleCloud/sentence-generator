@@ -70,6 +70,7 @@ class Batch:
         '''
 
             if raw==False, align the output length return np.array
+                
         '''
         assert batch_size<len(self.test_index)
         data=self.data

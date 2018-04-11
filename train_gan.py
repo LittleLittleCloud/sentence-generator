@@ -71,8 +71,8 @@ preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=1000,\
-            decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
+params=Parameter(word_embed_size=300,encode_rnn_size=300,latent_variable_size=600,\
+            decode_rnn_size=300,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
 generator=RVAE(params)
 gen_optimizer=Adam(generator.learnable_parameters(), 1e-3)

@@ -19,7 +19,7 @@ class RVAE(nn.Module):
         self.params=params
         self.embedding=Embedding(params)
         # self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
-        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size)
+        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
         
         self.i=Variable(t.FloatTensor(1),requires_grad=False)
         self.use_cuda=params.use_cuda
@@ -56,7 +56,7 @@ class RVAE(nn.Module):
             KLD=None
         [batch_size,latent_variable_size]=z.size()
         if init_state is None:
-            init_state=F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size)
+            init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         return init_state,KLD,z
 
         # decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
@@ -85,24 +85,27 @@ class RVAE(nn.Module):
         decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
         target=target.permute(1,0)
         [seq_len,batch,embedding_size]=decode_input.size()
-        input=decode_input[0].contiguous().view(batch,1,embedding_size)
+        input=decode_input.contiguous().view(batch,-1,embedding_size)
         rec_loss=0
-        for i in range(1,seq_len):
-            hidden.detach_()
+        out,_=self.decoder.forward(input,z,0.1,hidden,True)
+        rec_loss=F.nll_loss(out,target.view(-1))
+        # for i in range(1,seq_len):
             
-            out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
-            # out.detach_()
-            if use_teacher:
-                input=decode_input[i].contiguous().view(batch,1,embedding_size)
-            else:
-                input=Variable(out.data.topk(1)[1])
+        #     out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
+        #     # out.detach_()
+        #     if use_teacher:
+        #         input=decode_input[i].contiguous().view(batch,1,embedding_size)
+                
+        #     else:
+        #         input=Variable(out.data.topk(1)[1])
 
-                input=self.embedding(input)
-
-            rec_loss+=F.cross_entropy(out,target[i-1])
+        #         input=self.embedding(input)
+        #     print(out.data.topk(1)[1])
+        #     loss=F.cross_entropy(out,target[i-1])
+        #     rec_loss+=loss
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
-        return rec_loss/seq_len,kld,self.kl_weight(i)
+        return rec_loss,kld,self.kl_weight(i)
 
 
     def PG_LOSS(self,batch,dropout,use_cuda,rewards,use_teacher=True):
@@ -227,6 +230,7 @@ class RVAE(nn.Module):
             #sorry
             encode_input=encode_input.cuda()
             decode_input=decode_input.cuda()
+        res=[decode_input.view(batch,-1).data]
         
         encode_input=self.embedding(encode_input)
         decode_input=self.embedding(decode_input)
@@ -238,19 +242,17 @@ class RVAE(nn.Module):
         if use_cuda:
             z=z.cuda()
         z=z*std+mu
-        res=[]
         [batch_size,_]=z.size()        
-        hidden=F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size)
+        hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0,hidden)
-            out.detach_()
-            hidden.detach_()
-            words=out.data.topk(1)[1]
+            words=t.multinomial(t.exp(out), 1)
             #the end token
-            res+=[words]
+            if words.data.cpu().numpy()[0]==1:
+                break
+            res+=[words.data]
             decode_input=words.view(batch,-1)
-            decode_input=Variable(decode_input,volatile=True)    
             decode_input=self.embedding(decode_input)
             if use_cuda:
                 decode_input=decode_input.cuda()
@@ -271,17 +273,16 @@ class RVAE(nn.Module):
 
         decode_input=self.embedding(decode_input)
         
-        hidden=F.relu(self.latent(seed)).view(-1,1,self.params.decode_rnn_size)
+        hidden=F.relu(self.latent(seed)).view(-1,1,1,self.params.decode_rnn_size)
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,seed,0,hidden)
-            word=np.random.choice(np.arange(self.params.vocab_size),p=out.data.cpu().numpy()[-1])
-            out.detach_()
-            hidden.detach_()
+            word=t.multinomial(t.exp(out), 1).data.cpu().numpy()[0]
+
             #the end token
             if word==1:
                 break
-            res+=[word]
-            decode_input=np.array([[word]])
+            res+=[word[0]]
+            decode_input=np.array([word])
             decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
             if use_cuda:
                 decode_input=decode_input.cuda()

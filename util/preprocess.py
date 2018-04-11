@@ -51,9 +51,8 @@ class Preprocess:
                     tokens[j]=self.unknown_token
             raw_sentence[i]=' '.join(tokens)
         
-        
         if save:
-            with open(save,'w') as f:
+            with open(save,'w',encoding='utf-8') as f:
                 f.write('\n'.join(raw_sentence))
         return raw_sentence
                     

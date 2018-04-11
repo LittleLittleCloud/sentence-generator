@@ -6,17 +6,17 @@ class Decoder(nn.Module):
         super(Decoder,self).__init__()
         self.params=params
 
-        # self.lstm=nn.LSTM(  input_size=params.latent_variable_size+params.word_embed_size,
-        #                     hidden_size=params.decode_rnn_size,
-        #                     num_layers=params.decode_num_layer,
-        #                     batch_first=True
-        # )
-        self.gru=nn.GRU( 
-                            input_size=params.latent_variable_size+params.word_embed_size,
+        self.lstm=nn.LSTM(  input_size=params.latent_variable_size+params.word_embed_size,
                             hidden_size=params.decode_rnn_size,
                             num_layers=params.decode_num_layer,
                             batch_first=True
         )
+        # self.gru=nn.GRU( 
+        #                     input_size=params.latent_variable_size+params.word_embed_size,
+        #                     hidden_size=params.decode_rnn_size,
+        #                     num_layers=params.decode_num_layer,
+        #                     batch_first=True
+        # )
 
         self.fc=nn.Linear(params.decode_rnn_size,params.vocab_size)
 
@@ -30,12 +30,11 @@ class Decoder(nn.Module):
             # cat z to the end of each word
             z = torch.cat([z] * seq_len, 1).view(batch_size, seq_len, self.params.latent_variable_size)
             decoder_input = torch.cat([decoder_input, z], 2)
-
-        out,hidden=self.gru(decoder_input,init_state)
+        out,hidden=self.lstm(decoder_input,(init_state[0],init_state[1]))
         out=out.view(-1,self.params.decode_rnn_size)
         out=self.fc(out)
-        out=out.view(batch_size,self.params.vocab_size)    
-        out=F.softmax(out,1)
+        out=out.view(-1,self.params.vocab_size)    
+        out=F.log_softmax(out,1)
         return out,hidden
         # input=decoder_input[0].view(batch_size,1,embeding_size)
         # for i in range(seq_len):
