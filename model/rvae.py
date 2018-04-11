@@ -88,7 +88,7 @@ class RVAE(nn.Module):
         input=decode_input.contiguous().view(batch,-1,embedding_size)
         rec_loss=0
         out,_=self.decoder.forward(input,z,0.1,hidden,True)
-        rec_loss=F.nll_loss(out,target.view(-1))
+        rec_loss=F.nll_loss(out,target.contiguous().view(-1))
         # for i in range(1,seq_len):
             
         #     out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
