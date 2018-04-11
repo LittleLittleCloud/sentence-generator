@@ -65,7 +65,7 @@ else:
 #step2
 #pre-train generater
 
-with open('train','r') as f:
+with open('train','r',encoding='utf-8') as f:
     data=f.readlines()
 preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
