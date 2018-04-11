@@ -22,5 +22,4 @@ class Embedding(nn.Module):
         '''
 
         output=self.word_embed(input)
-
         return output

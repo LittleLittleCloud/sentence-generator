@@ -11,7 +11,7 @@ class RVAE(nn.Module):
     def __init__(self,params):
         super(RVAE,self).__init__()
         self.kl_weight=0
-        
+
         self.encoder=Encoder(params)
         self.decoder=Decoder(params)
         self.logvar=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
@@ -48,7 +48,8 @@ class RVAE(nn.Module):
                 z=z.cuda()
             z=z*std+mu
             KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1))
-            KLD=KLD.mean().squeeze()
+            KLD=KLD.mean()
+            
             
             
         else:
@@ -87,13 +88,17 @@ class RVAE(nn.Module):
         input=decode_input[0].contiguous().view(batch,1,embedding_size)
         rec_loss=0
         for i in range(1,seq_len):
+            hidden.detach_()
+            
             out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
+            # out.detach_()
             if use_teacher:
                 input=decode_input[i].contiguous().view(batch,1,embedding_size)
             else:
                 input=Variable(out.data.topk(1)[1])
 
                 input=self.embedding(input)
+
             rec_loss+=F.cross_entropy(out,target[i-1])
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
@@ -119,7 +124,7 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
             target=target.cuda()
         
-        hidden,kld,z=self.forward(encode_input)
+        hidden,_,z=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
 
         decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
@@ -127,8 +132,11 @@ class RVAE(nn.Module):
         [seq_len,batch,embedding_size]=decode_input.size()
         input=decode_input[0].contiguous().view(batch,1,embedding_size)
         pg_loss=0
+        rewards=Variable(rewards)
         for i in range(1,seq_len):
             out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
+            # out.detach_()
+            # hidden.detach_()
             if use_teacher:
                 input=decode_input[i].contiguous().view(batch,1,embedding_size)
             else:
@@ -211,9 +219,9 @@ class RVAE(nn.Module):
 
     def sample(self,encode_input,use_cuda):
         [batch,seq_len]=encode_input.shape
-        encode_input=Variable(t.from_numpy(encode_input)).long()
+        encode_input=Variable(t.from_numpy(encode_input),volatile=True).long()
         decode_input=np.array([0]*batch).reshape(batch,-1)
-        decode_input=Variable(t.from_numpy(decode_input)).long()
+        decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
 
         if use_cuda:
             #sorry
@@ -230,30 +238,31 @@ class RVAE(nn.Module):
         if use_cuda:
             z=z.cuda()
         z=z*std+mu
-
         res=[]
         [batch_size,_]=z.size()        
         hidden=F.relu(self.latent(z)).view(-1,batch_size,self.params.decode_rnn_size)
+        
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0,hidden)
-
+            out.detach_()
+            hidden.detach_()
             words=out.data.topk(1)[1]
             #the end token
             res+=[words]
             decode_input=words.view(batch,-1)
-            decode_input=Variable(decode_input)    
+            decode_input=Variable(decode_input,volatile=True)    
             decode_input=self.embedding(decode_input)
             if use_cuda:
                 decode_input=decode_input.cuda()
         return t.cat(res,1)
     
     def random_sample(self,seq_len,use_cuda):
-        seed=Variable(t.rand(self.params.latent_variable_size),requires_grad=False)
+        seed=Variable(t.rand(self.params.latent_variable_size),volatile=True)
 
         seed=seed.view(1,-1)
         res=[]
         decode_input=np.array([[0]])
-        decode_input=Variable(t.from_numpy(decode_input)).long()
+        decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
         
 
         if use_cuda:
@@ -266,13 +275,14 @@ class RVAE(nn.Module):
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,seed,0,hidden)
             word=np.random.choice(np.arange(self.params.vocab_size),p=out.data.cpu().numpy()[-1])
-
+            out.detach_()
+            hidden.detach_()
             #the end token
             if word==1:
                 break
             res+=[word]
             decode_input=np.array([[word]])
-            decode_input=Variable(t.from_numpy(decode_input).long())
+            decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
             if use_cuda:
                 decode_input=decode_input.cuda()
             decode_input=self.embedding(decode_input)

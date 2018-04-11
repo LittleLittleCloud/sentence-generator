@@ -71,8 +71,8 @@ preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=100,\
-            decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
+params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=1000,\
+            decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
 generator=RVAE(params)
 gen_optimizer=Adam(generator.learnable_parameters(), 1e-3)
@@ -83,15 +83,18 @@ if use_cuda:
 test_batch=batch_loader.test_next_batch(1)
 
 #useless
-for i,batch in enumerate(batch_loader.train_next_batch(1)):
-
+for i,batch in enumerate(batch_loader.train_next_batch(5)):
+    break
     ce,kld,coef=generator.REC_LOSS(batch,0.2,use_cuda)
-    loss=ce+coef*kld
+    loss=77*ce+coef*kld
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()
+    # loss.detach_()
     if i%10==0:
         print('ten step: ce:{}, kld:{} '.format(ce,kld))
+    del loss,ce,kld
+    
 
 
 #step 3
@@ -101,7 +104,7 @@ for i,batch in enumerate(batch_loader.train_next_batch(1)):
 
 print('train gan')
 seq_data=batch_loader2.train_data
-BATCH_SIZE=5
+BATCH_SIZE=1
 gen_loss=[]
 dis_loss=[]
 test_input=batch_loader2.test_next_batch(5,raw=True)
@@ -115,12 +118,11 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     print('train generator')
     encode_input,_,_=batch_loader.to_input(batch)
     res=generator.sample(encode_input,use_cuda)
-    print(res.size())
     [b,s]=res.size()
     # res=res.view(-1,v)
     # res=res.topk(1)[1]
     # res=res.view(b,s)
-    rewards=discriminator.batchClassify(Variable(res)).data #[b]
+    rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
     rewards=t.exp(target-rewards)
     loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
     gen_optimizer.zero_grad()
@@ -133,7 +135,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     for _round in range(1):
         #sample positive and negative samples
         pos=batch_loader2.gen_positive_sample(100)
-        neg=generator.random_sample_n(100,use_cuda)
+        neg=generator.random_sample_n(10,use_cuda)
         data=pos[0]+neg
         target=pos[1]+[0]*len(neg)
         index=np.arange(len(data))
@@ -151,15 +153,16 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
             y=np.array(y)
 
             #train
+            print('-----------')
             loss=train_step([X,y],use_cuda=use_cuda)
             dis_optimizer.zero_grad()
             loss.backward()
             dis_optimizer.step()
             dis_loss+=[loss.cpu().data.numpy()[0]]
+            loss.detach_()
             del loss
 
     if round%10==0:
-        continue
         print('---PG LOSS---')
         print(sum(gen_loss[-10:])/10)
         print('-------------')
@@ -170,17 +173,10 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
         #sample
         input=next(test_input)
-        encode_input,decode_input,target=batch_loader.to_input(input[0])
-        encode_input=Variable(t.from_numpy(encode_input)).long()
-        decode_input=Variable(t.from_numpy(decode_input)).long()
-
-        if use_cuda:
-            #sorry
-            encode_input=encode_input.cuda()
-            decode_input=decode_input.cuda()
+        encode_input,_,_=batch_loader.to_input(input[0])
 
         res=generator.sample(encode_input,use_cuda)
-        res=res.view(b,s)
+        res=res.view(b,-1)
 
         y=discriminator.batchClassify(res).view(-1).data.cpu().numpy()
         print(y,input[1])
@@ -189,7 +185,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
         print('-------------')
         
         print('sample result: ')
-        res=res.data.cpu().numpy()
+        res=res.cpu().numpy()
         print(res)
         for sentence in res:
             sentence=[preprocess.index_to_word[i] for i in sentence]
