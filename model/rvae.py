@@ -40,13 +40,14 @@ class RVAE(nn.Module):
         if z is None:
             encode_input=self.embedding(encode_input)
             final_state=self.encoder(encode_input) 
-            logvar=self.logvar(final_state)
+            logvar=t.exp(-F.relu(self.logvar(final_state)))  #make sure logvar in 
             mu=self.mu(final_state)
             std=t.exp(0.5*logvar)
             z=Variable(std.data.new(std.size()).normal_())
             if use_cuda:
                 z=z.cuda()
-            z=z*std+mu
+            # z=z*std+mu
+            z=mu
             KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1))
             KLD=KLD.mean()
             
@@ -79,7 +80,7 @@ class RVAE(nn.Module):
             encode_input=encode_input.cuda()
             decode_input=decode_input.cuda()
             target=target.cuda()
-        
+
         hidden,kld,z=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
         decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
@@ -231,7 +232,7 @@ class RVAE(nn.Module):
             encode_input=encode_input.cuda()
             decode_input=decode_input.cuda()
         res=[decode_input.view(batch,-1).data]
-        
+        answer=encode_input.clone().view(seq_len,batch)
         encode_input=self.embedding(encode_input)
         decode_input=self.embedding(decode_input)
         final_state=self.encoder(encode_input)
@@ -244,7 +245,6 @@ class RVAE(nn.Module):
         z=z*std+mu
         [batch_size,_]=z.size()        
         hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
-        
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0,hidden)
             words=t.multinomial(t.exp(out), 1)
@@ -252,7 +252,7 @@ class RVAE(nn.Module):
             if words.data.cpu().numpy()[0]==1:
                 break
             res+=[words.data]
-            decode_input=words.view(batch,-1)
+            decode_input=answer[i].view(batch,-1)
             decode_input=self.embedding(decode_input)
             if use_cuda:
                 decode_input=decode_input.cuda()
