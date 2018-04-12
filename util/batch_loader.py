@@ -32,11 +32,12 @@ class Batch:
             decode_input=[[0]+data[i] for i in train_index[start:end]]
             target=[data[i]+[1] for i in train_index[start:end]]
             max_len=max(len(x) for x in encode_input)
+            real_len=[len(x) for x in encode_input]
 
             #sorry again
             for i,line in enumerate(encode_input):
                 to_add=max_len-len(line)
-                encode_input[i]=line+[2]*to_add
+                encode_input[i]=[2]*to_add+line[::-1]
             encode_input=np.array(encode_input)
 
             for i,line in enumerate(decode_input):
@@ -55,7 +56,7 @@ class Batch:
             if index:
                 yield encode_input,decode_input,target,(start,end)
             else:
-                yield encode_input,decode_input,target
+                yield encode_input,decode_input,target,real_len
 
     
     def test_next_batch(self,batch_size):
@@ -74,7 +75,7 @@ class Batch:
             #sorry again
             for i,line in enumerate(encode_input):
                 to_add=max_len-len(line)
-                encode_input[i]=line+[2]*to_add
+                encode_input[i]=[2]*to_add+line[::-1]
             encode_input=np.array(encode_input)
             decode_input=np.array(decode_input)
 

@@ -46,8 +46,7 @@ class RVAE(nn.Module):
             z=Variable(std.data.new(std.size()).normal_())
             if use_cuda:
                 z=z.cuda()
-            # z=z*std+mu
-            z=mu
+            z=z*std+mu
             KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1))
             KLD=KLD.mean()
             
@@ -56,8 +55,8 @@ class RVAE(nn.Module):
         else:
             KLD=None
         [batch_size,latent_variable_size]=z.size()
-        if init_state is None:
-            init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
+        # if init_state is None:
+        #     init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         return init_state,KLD,z
 
         # decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
@@ -70,7 +69,7 @@ class RVAE(nn.Module):
 
 
     def REC_LOSS(self,batch,dropout,use_cuda,use_teacher=True):
-        encode_input,decode_input,target=batch
+        encode_input,decode_input,target,real_seq_len=batch
         encode_input=Variable(t.from_numpy(encode_input)).long()
         decode_input=Variable(t.from_numpy(decode_input)).long()
         target=Variable(t.from_numpy(target)).long()
@@ -89,7 +88,13 @@ class RVAE(nn.Module):
         input=decode_input.contiguous().view(batch,-1,embedding_size)
         rec_loss=0
         out,_=self.decoder.forward(input,z,0.1,hidden,True)
-        rec_loss=F.nll_loss(out,target.contiguous().view(-1))
+        out=out.view(batch,seq_len,-1)
+        target=target.contiguous().view(batch,seq_len)
+        for b in range(batch):
+            #real seq length
+            l=real_seq_len[b]
+            rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l])
+        # rec_loss=F.nll_loss(out,target.contiguous().view(-1))
         # for i in range(1,seq_len):
             
         #     out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
@@ -106,7 +111,7 @@ class RVAE(nn.Module):
         #     rec_loss+=loss
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
-        return rec_loss,kld,self.kl_weight(i)
+        return rec_loss/batch,kld,self.kl_weight(i)
 
 
     def PG_LOSS(self,batch,dropout,use_cuda,rewards,use_teacher=True):
@@ -236,7 +241,7 @@ class RVAE(nn.Module):
         encode_input=self.embedding(encode_input)
         decode_input=self.embedding(decode_input)
         final_state=self.encoder(encode_input)
-        logvar=self.logvar(final_state)
+        logvar=t.exp(-F.relu(self.logvar(final_state)))
         mu=self.mu(final_state)
         std=t.exp(0.5*logvar)
         z=Variable(std.data.new(std.size()).normal_())
