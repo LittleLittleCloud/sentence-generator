@@ -34,7 +34,7 @@ kld_list=[]
 coef_list=[]
 test_batch=batch_loader.test_next_batch(1)
 
-for i,batch in enumerate(batch_loader.train_next_batch(5)):
+for i,batch in enumerate(batch_loader.train_next_batch(3)):
     if i%101==0:
         sample=next(test_batch)
         sentence=model.sample(sample[0],use_cuda).cpu().numpy()[0]

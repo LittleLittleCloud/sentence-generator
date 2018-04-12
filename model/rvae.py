@@ -82,33 +82,16 @@ class RVAE(nn.Module):
 
         hidden,kld,z=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
-        decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
-        target=target.permute(1,0)
-        [seq_len,batch,embedding_size]=decode_input.size()
-        input=decode_input.contiguous().view(batch,-1,embedding_size)
+        [batch,seq_len,embedding_size]=decode_input.size()
         rec_loss=0
-        out,_=self.decoder.forward(input,z,0.1,hidden,True)
+        out,_=self.decoder.forward(decode_input,z,0.1,hidden,True)
         out=out.view(batch,seq_len,-1)
-        target=target.contiguous().view(batch,seq_len)
+        target=target.view(batch,seq_len)
         for b in range(batch):
             #real seq length
             l=real_seq_len[b]
             rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l])
-        # rec_loss=F.nll_loss(out,target.contiguous().view(-1))
-        # for i in range(1,seq_len):
-            
-        #     out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
-        #     # out.detach_()
-        #     if use_teacher:
-        #         input=decode_input[i].contiguous().view(batch,1,embedding_size)
-                
-        #     else:
-        #         input=Variable(out.data.topk(1)[1])
 
-        #         input=self.embedding(input)
-        #     print(out.data.topk(1)[1])
-        #     loss=F.cross_entropy(out,target[i-1])
-        #     rec_loss+=loss
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
         return rec_loss/batch,kld,self.kl_weight(i)
@@ -137,7 +120,7 @@ class RVAE(nn.Module):
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
 
         decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
-        target=target.permute(1,0)             #[seq_len,batch]
+        # target=target.permute(1,0)             #[seq_len,batch]
         [seq_len,batch,embedding_size]=decode_input.size()
         input=decode_input[0].contiguous().view(batch,1,embedding_size)
         pg_loss=0
@@ -279,7 +262,8 @@ class RVAE(nn.Module):
 
         decode_input=self.embedding(decode_input)
         
-        hidden=F.relu(self.latent(seed)).view(-1,1,1,self.params.decode_rnn_size)
+        # hidden=F.relu(self.latent(seed)).view(-1,1,1,self.params.decode_rnn_size)
+        hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,seed,0,hidden)
             word=t.multinomial(t.exp(out), 1).data.cpu().numpy()[0]
