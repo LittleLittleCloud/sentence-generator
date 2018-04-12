@@ -249,7 +249,8 @@ class RVAE(nn.Module):
             z=z.cuda()
         z=z*std+mu
         [batch_size,_]=z.size()        
-        hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
+        # hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
+        hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0,hidden)
             words=t.multinomial(t.exp(out), 1)
