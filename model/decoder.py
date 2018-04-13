@@ -31,9 +31,8 @@ class Decoder(nn.Module):
             z = torch.cat([z] * seq_len, 1).view(batch_size, seq_len, self.params.latent_variable_size)
             decoder_input = torch.cat([decoder_input, z], 2)
         if init_state is not None:
-            out,hidden=self.lstm(decoder_input,(init_state[0],init_state[1]))
-        else:
-            out,hidden=self.lstm(decoder_input)
+            init_state=(init_state[0],init_state[1])
+        out,hidden=self.lstm(decoder_input)
         out=out.contiguous().view(-1,self.params.decode_rnn_size)
         out=self.fc(out)
         out=out.view(-1,self.params.vocab_size)    

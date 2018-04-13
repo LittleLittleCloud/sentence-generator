@@ -84,13 +84,24 @@ class RVAE(nn.Module):
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
         [batch,seq_len,embedding_size]=decode_input.size()
         rec_loss=0
-        out,_=self.decoder.forward(decode_input,z,0.1,hidden,True)
-        out=out.view(batch,seq_len,-1)
         target=target.view(batch,seq_len)
+        
+        if use_teacher:
+            out,_=self.decoder.forward(decode_input,z,0.1,hidden,True)
+        else:
+            res=[]
+            input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
+            for i in range(seq_len):
+                out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
+                res+=[out.data]
+                input=t.multinomial(t.exp(out), 1)
+                input=self.embedding(input)
+            out=Variable(t.cat(res,1))
+        out=out.view(batch,seq_len,-1)
         for b in range(batch):
             #real seq length
             l=real_seq_len[b]
-            rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l])
+            rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l]) 
 
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
@@ -241,7 +252,7 @@ class RVAE(nn.Module):
             if words.data.cpu().numpy()[0]==1:
                 break
             res+=[words.data]
-            decode_input=answer[i].view(batch,-1)
+            decode_input=words.view(batch,-1)
             decode_input=self.embedding(decode_input)
             if use_cuda:
                 decode_input=decode_input.cuda()
