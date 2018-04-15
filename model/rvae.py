@@ -19,7 +19,7 @@ class RVAE(nn.Module):
         self.params=params
         self.embedding=Embedding(params)
         # self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
-        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
+        self.latent=nn.Linear(params.encode_rnn_size*2,params.decode_rnn_size)
         
         self.i=Variable(t.FloatTensor(1),requires_grad=False)
         self.use_cuda=params.use_cuda
@@ -39,9 +39,14 @@ class RVAE(nn.Module):
         use_cuda=self.embedding.word_embed.weight.is_cuda
         if z is None:
             encode_input=self.embedding(encode_input)
-            final_state=self.encoder(encode_input) 
-            logvar=t.exp(-F.relu(self.logvar(final_state)))  #make sure logvar in 
-            mu=self.mu(final_state)
+            final_hidden_state,final_cell_state=self.encoder(encode_input) 
+            [_,batch,hidden_size]=final_hidden_state.size()
+            final_hidden_state=final_hidden_state.view(-1,hidden_size)
+            final_cell_state=final_cell_state.view(-1,hidden_size)
+            logvar=t.exp(-F.relu(self.logvar(final_hidden_state)))  #make sure logvar in 
+            mu=self.mu(final_hidden_state)
+            logvar=logvar.view(batch,-1)
+            mu=mu.view(batch,-1)
             std=t.exp(0.5*logvar)
             z=Variable(std.data.new(std.size()).normal_())
             if use_cuda:
@@ -54,7 +59,8 @@ class RVAE(nn.Module):
             
         else:
             KLD=None
-        [batch_size,latent_variable_size]=z.size()
+        init_state=t.cat([final_hidden_state,final_cell_state],0)
+        init_state=F.relu(self.latent(init_state)).view(-1,1,batch,self.params.decode_rnn_size)
         # if init_state is None:
         #     init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         return init_state,KLD,z
@@ -83,8 +89,6 @@ class RVAE(nn.Module):
         hidden,kld,z=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
         [batch,seq_len,embedding_size]=decode_input.size()
-        rec_loss=0
-        target=target.view(batch,seq_len)
         
         if use_teacher:
             out,_=self.decoder.forward(decode_input,z,0.1,hidden,True)
@@ -97,15 +101,15 @@ class RVAE(nn.Module):
                 input=t.multinomial(t.exp(out), 1)
                 input=self.embedding(input)
             out=Variable(t.cat(res,1),requires_grad=True)
-        out=out.view(batch,seq_len,-1)
-
-        for b in range(batch):
-            #real seq length
-            l=real_seq_len[b]
-            rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l]) 
+            out=out.view(-1,self.params.vocab_size)
+        rec_loss=F.nll_loss(out,target.view(-1))
+        # for b in range(batch):
+        #     #real seq length
+        #     l=real_seq_len[b]
+        #     rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l]) 
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
-        return rec_loss/batch,kld,self.kl_weight(i)
+        return rec_loss,kld,self.kl_weight(i)
 
 
     def PG_LOSS(self,batch,dropout,use_cuda,rewards,use_teacher=True):
@@ -130,10 +134,10 @@ class RVAE(nn.Module):
         hidden,_,z=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
 
-        decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
+        # decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
         # target=target.permute(1,0)             #[seq_len,batch]
-        [seq_len,batch,embedding_size]=decode_input.size()
-        input=decode_input[0].contiguous().view(batch,1,embedding_size)
+        [batch,seq_len,embedding_size]=decode_input.size()
+        input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
         pg_loss=0
         rewards=Variable(rewards)
         for i in range(1,seq_len):
@@ -141,12 +145,12 @@ class RVAE(nn.Module):
             # out.detach_()
             # hidden.detach_()
             if use_teacher:
-                input=decode_input[i].contiguous().view(batch,1,embedding_size)
+                input=decode_input[:,i,:].contiguous().view(batch,1,embedding_size)
             else:
-                input=Variable(out.data.topk(1)[1])
+                input=t.multinomial(t.exp(out), 1)
                 input=self.embedding(input)
             for j in range(batch):
-                pg_loss+=-out[j][target.data[i-1][j]]*rewards[j]
+                pg_loss+=-out[j][target.data[j][i-1]]*rewards[j]
         return pg_loss/batch
 
 
@@ -232,19 +236,20 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
         res=[decode_input.view(batch,-1).data]
         answer=encode_input.clone().view(seq_len,batch)
-        encode_input=self.embedding(encode_input)
+        # encode_input=self.embedding(encode_input)
         decode_input=self.embedding(decode_input)
-        final_state=self.encoder(encode_input)
-        logvar=t.exp(-F.relu(self.logvar(final_state)))
-        mu=self.mu(final_state)
-        std=t.exp(0.5*logvar)
-        z=Variable(std.data.new(std.size()).normal_())
-        if use_cuda:
-            z=z.cuda()
-        z=z*std+mu
-        [batch_size,_]=z.size()        
+        # final_state=self.encoder(encode_input)
+        # logvar=t.exp(-F.relu(self.logvar(final_state)))
+        # mu=self.mu(final_state)
+        # std=t.exp(0.5*logvar)
+        # z=Variable(std.data.new(std.size()).normal_())
+        # if use_cuda:
+        #     z=z.cuda()
+        # z=z*std+mu
+        hidden,_,z=self.forward(encode_input)
+        [batch_size,_]=z.size()                
         # hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
-        hidden=None
+        # hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0,hidden)
             words=t.multinomial(t.exp(out), 1)

@@ -71,8 +71,8 @@ preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=300,latent_variable_size=600,\
-            decode_rnn_size=300,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
+params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=100,\
+            decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
 generator=RVAE(params)
 gen_optimizer=Adam(generator.learnable_parameters(), 1e-3)
@@ -124,6 +124,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.view(b,s)
     rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
     rewards=t.exp(target-rewards)
+    print("rewards: ",rewards)
     loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
     gen_optimizer.zero_grad()
     loss.backward()
@@ -184,12 +185,12 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
         print('---SAMPLE LOSS---\n {}'.format(loss))
         print('-------------')
         
-        print('sample result: ')
-        res=res.cpu().numpy()
-        print(res)
-        for sentence in res:
-            sentence=[preprocess.index_to_word[i] for i in sentence]
-            print(' '.join(sentence))
+        # print('sample result: ')
+        # res=res.cpu().numpy()
+        # print(res)
+        # for sentence in res:
+        #     sentence=[preprocess.index_to_word[i] for i in sentence]
+        #     print(' '.join(sentence))
         
 
 

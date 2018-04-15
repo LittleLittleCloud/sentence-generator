@@ -35,7 +35,6 @@ class Decoder(nn.Module):
         out,hidden=self.lstm(decoder_input)
         out=out.contiguous().view(-1,self.params.decode_rnn_size)
         out=self.fc(out)
-        out=out.view(-1,self.params.vocab_size)    
         out=F.log_softmax(out,1)
         return out,hidden
         # input=decoder_input[0].view(batch_size,1,embeding_size)

@@ -23,9 +23,7 @@ class Encoder(nn.Module):
         input=input.view(-1,embed_size)
         input=self.highway(input)
         input=input.view(batch_size,seq_len,embed_size)
-        _,(_,final_state)=self.lstm(input)
-        final_state = final_state.view(self.params.encode_num_layer, 2, batch_size, self.params.encode_rnn_size)
-        final_state = final_state[-1]
-        h_1,h_2=final_state[0],final_state[1]
-        final_state=torch.cat([h_1,h_2],1)
-        return final_state
+        _,(final_hidden_state,final_cell_state)=self.lstm(input)
+        final_hidden_state=final_hidden_state.view(1,batch_size,-1)
+        final_cell_state=final_cell_state.view(1,batch_size,-1)
+        return final_hidden_state,final_cell_state
