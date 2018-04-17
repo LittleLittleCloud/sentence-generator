@@ -60,7 +60,7 @@ class Ranker(nn.Module):
 
         '''
 
-        return self.forward(input).detach()
+        return self.forward(input)
 
     def validater(self,loss_f):
         def validate(batch,use_cuda=True):

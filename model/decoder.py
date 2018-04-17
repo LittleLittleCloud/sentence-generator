@@ -32,7 +32,7 @@ class Decoder(nn.Module):
             decoder_input = torch.cat([decoder_input, z], 2)
         if init_state is not None:
             init_state=(init_state[0],init_state[1])
-        out,hidden=self.lstm(decoder_input)
+        out,hidden=self.lstm(decoder_input,init_state)
         out=out.contiguous().view(-1,self.params.decode_rnn_size)
         out=self.fc(out)
         # out=F.log_softmax(out,1)

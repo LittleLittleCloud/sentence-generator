@@ -21,7 +21,7 @@ PRETRAIN_DIS_PATH='PRETRAIN_DIS_PATH'
 embedding_model=KeyedVectors.load_word2vec_format(WORD2VEC)
 data=pd.read_csv(DATA_PATH,encoding='utf-8').dropna().values[:,[1,2]]
 batch_loader2=Batch2(data,0.9,embedding_model.wv.index2word)
-dis_params=Parameter2(batch_loader2.vocab_size,'embedding.npy',300)
+dis_params=Parameter2(batch_loader2.vocab_size,'embedding.npy',100)
 
 use_cuda=t.cuda.is_available()
 
@@ -71,7 +71,7 @@ preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=100,latent_variable_size=100,\
+params=Parameter(word_embed_size=100,encode_rnn_size=100,latent_variable_size=100,\
             decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
 generator=RVAE(params)
@@ -124,7 +124,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.view(b,s)
     rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
     rewards=t.exp(target-rewards)
-    print("rewards: ",rewards)
+    print('rewards: ',rewards)
     loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
     gen_optimizer.zero_grad()
     loss.backward()
@@ -133,7 +133,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     del loss
 
     print('train discriminator')
-    for _round in range(1):
+    for _round in range(3):
         #sample positive and negative samples
         pos=batch_loader2.gen_positive_sample(100)
         neg=generator.random_sample_n(10,use_cuda)
@@ -154,7 +154,6 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
             y=np.array(y)
 
             #train
-            print('-----------')
             loss=train_step([X,y],use_cuda=use_cuda)
             dis_optimizer.zero_grad()
             loss.backward()
@@ -178,9 +177,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
         res=generator.sample(encode_input,use_cuda)
         res=res.view(b,-1)
-
-        y=discriminator.batchClassify(res).view(-1).data.cpu().numpy()
-        print(y,input[1])
+        y=discriminator.batchClassify(Variable(res)).view(-1).data.cpu().numpy()
         loss=((y-input[1])**2).mean()
         print('---SAMPLE LOSS---\n {}'.format(loss))
         print('-------------')

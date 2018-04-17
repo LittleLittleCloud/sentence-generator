@@ -9,7 +9,7 @@ class Conv(nn.Module):
         super(Conv,self).__init__()
 
         self.params=params
-        self.kernels= [Parameter(t.Tensor(oc,params.embedding_size,kw)) for (kw,oc) in self.params.kernels]
+        self.kernels= [Parameter(t.Tensor(oc,params.embedding_size,kw).normal_()) for (kw,oc) in self.params.kernels]
         self._add_to_parameters(self.kernels,'kernels')
 
     def forward(self,x):

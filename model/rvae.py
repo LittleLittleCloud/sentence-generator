@@ -148,11 +148,11 @@ class RVAE(nn.Module):
             if use_teacher:
                 input=decode_input[:,i,:].contiguous().view(batch,1,embedding_size)
             else:
-                input=t.multinomial(t.exp(out), 1)
+                input=t.multinomial(F.softmax(out), 1)
                 input=self.embedding(input)
             for j in range(batch):
-                pg_loss+=-out[j][target.data[j][i-1]]*rewards[j]
-        return pg_loss/batch
+                pg_loss+=-F.log_softmax(out)[j][target.data[j][i-1]]*rewards[j]
+        return pg_loss/(batch*seq_len)
 
 
     def trainer(self, optimizer):
