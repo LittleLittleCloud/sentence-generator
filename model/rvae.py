@@ -98,11 +98,12 @@ class RVAE(nn.Module):
             for i in range(seq_len):
                 out,hidden=self.decoder.forward(input,z,0,hidden,True)
                 res+=[out.data]
-                input=t.multinomial(t.exp(out), 1)
+
+                input=t.multinomial(F.softmax(out,dim=1),1)
                 input=self.embedding(input)
             out=Variable(t.cat(res,1),requires_grad=True)
             out=out.view(-1,self.params.vocab_size)
-        rec_loss=F.nll_loss(out,target.view(-1))
+        rec_loss=F.cross_entropy(out,target.view(-1))
         # for b in range(batch):
         #     #real seq length
         #     l=real_seq_len[b]
@@ -252,7 +253,7 @@ class RVAE(nn.Module):
         # hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0,hidden)
-            words=t.multinomial(t.exp(out), 1)
+            words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
             if words.data.cpu().numpy()[0]==1:
                 break

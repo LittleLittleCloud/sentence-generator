@@ -45,7 +45,7 @@ for i,batch in enumerate(batch_loader.train_next_batch(4)):
         print('origin',' '.join(s))
         print('sample',' '.join(sentence))
         continue
-    use_teacher=True
+    use_teacher=np.random.rand()>0.1
     ce,kld,coef=model.REC_LOSS(batch,0.1,use_cuda,use_teacher)
     loss=77*ce+coef*kld
     optimizer.zero_grad()
