@@ -37,7 +37,7 @@ class Batch:
             #sorry again
             for i,line in enumerate(encode_input):
                 to_add=max_len-len(line)
-                encode_input[i]=[2]*to_add+line[::-1]
+                encode_input[i]=line+[2]*to_add
             encode_input=np.array(encode_input)
 
             for i,line in enumerate(decode_input):
@@ -75,7 +75,7 @@ class Batch:
             #sorry again
             for i,line in enumerate(encode_input):
                 to_add=max_len-len(line)
-                encode_input[i]=[2]*to_add+line[::-1]
+                encode_input[i]=line+[2]*to_add
             encode_input=np.array(encode_input)
             decode_input=np.array(decode_input)
 

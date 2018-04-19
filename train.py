@@ -34,6 +34,7 @@ use_cuda=t.cuda.is_available()
 ce_list=[]
 kld_list=[]
 coef_list=[]
+re_list=[]
 test_batch=batch_loader.test_next_batch(1)
 
 for i,batch in enumerate(batch_loader.train_next_batch(4)):
@@ -47,14 +48,17 @@ for i,batch in enumerate(batch_loader.train_next_batch(4)):
         continue
     use_teacher=np.random.rand()>0.1
     ce,kld,coef=model.REC_LOSS(batch,0.1,use_cuda,use_teacher)
-    loss=77*ce+coef*kld
+    reencode_loss=model.REENCODE_LOSS(batch,use_cuda)
+    loss=ce+coef*kld+coef*reencode_loss
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     ce_list+=[ce.data]
     kld_list+=[kld.data]
+    re_list+=[reencode_loss.data]
     if i%100==0:
-        print('100 step: ce:{}, kld:{} '.format(sum(ce_list[-100:])/100,sum(kld_list[-100:])/100))
+        print('100 step: ce:{}, kld:{}, re_encode:{} '\
+        .format(sum(ce_list[-100:])/100,sum(kld_list[-100:])/100,sum(re_list[-100:])/100))
         t.save(model.state_dict(),"PRETRAIN_GEN_PATH")
 
 

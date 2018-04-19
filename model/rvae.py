@@ -60,7 +60,7 @@ class RVAE(nn.Module):
         else:
             KLD=None
         init_state=t.cat([final_hidden_state,final_cell_state],0)
-        init_state=F.relu(self.latent(init_state)).view(-1,1,batch,self.params.decode_rnn_size)
+        init_state=self.latent(init_state).view(-1,1,batch,self.params.decode_rnn_size)
         # if init_state is None:
         #     init_state=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         return init_state,KLD,z
@@ -112,6 +112,27 @@ class RVAE(nn.Module):
         self.i+=1
         return rec_loss,kld,self.kl_weight(i)
 
+    def REENCODE_LOSS(self,encode_input,use_cuda):
+        '''
+
+            the distance between latten(x) and latten(encode(decode(latten(x)))) 
+
+        '''
+        encode_input,_,_,_=encode_input
+
+        sample_input=self.sample(encode_input,use_cuda)
+        
+        encode_input=Variable(t.from_numpy(encode_input)).long()
+        if use_cuda:
+            #sorry
+            encode_input=encode_input.cuda()
+
+        _,_,z_origin=self.forward(encode_input)
+        _,_,z_new=self.forward(Variable(sample_input))
+
+
+        return t.sum((z_origin-z_new)**2,1).mean()
+
 
     def PG_LOSS(self,batch,dropout,use_cuda,rewards,use_teacher=True):
         '''
@@ -152,7 +173,7 @@ class RVAE(nn.Module):
                 input=self.embedding(input)
             for j in range(batch):
                 pg_loss+=-F.log_softmax(out)[j][target.data[j][i-1]]*rewards[j]
-        return pg_loss/(batch*seq_len)
+        return pg_loss/(batch)
 
 
     def trainer(self, optimizer):
@@ -237,16 +258,7 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
         res=[decode_input.view(batch,-1).data]
         answer=encode_input.clone().view(seq_len,batch)
-        # encode_input=self.embedding(encode_input)
         decode_input=self.embedding(decode_input)
-        # final_state=self.encoder(encode_input)
-        # logvar=t.exp(-F.relu(self.logvar(final_state)))
-        # mu=self.mu(final_state)
-        # std=t.exp(0.5*logvar)
-        # z=Variable(std.data.new(std.size()).normal_())
-        # if use_cuda:
-        #     z=z.cuda()
-        # z=z*std+mu
         hidden,_,z=self.forward(encode_input)
         [batch_size,_]=z.size()                
         # hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)

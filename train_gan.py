@@ -17,7 +17,7 @@ from torch.autograd import Variable
 DATA_PATH='./data/event_score.csv'
 WORD2VEC='../sentence generator/embedding.bin'
 PRETRAIN_DIS_PATH='PRETRAIN_DIS_PATH'
-
+PRETRAIN_GEN_PATH='PRETRAIN_GEN_PATH'
 embedding_model=KeyedVectors.load_word2vec_format(WORD2VEC)
 data=pd.read_csv(DATA_PATH,encoding='utf-8').dropna().values[:,[1,2]]
 batch_loader2=Batch2(data,0.9,embedding_model.wv.index2word)
@@ -82,6 +82,9 @@ if use_cuda:
 
 test_batch=batch_loader.test_next_batch(1)
 
+if os.path.isfile(PRETRAIN_GEN_PATH):
+    print('find PRETRAINED_GEN_FILE')
+    generator.load_state_dict(t.load(PRETRAIN_GEN_PATH))
 #useless
 for i,batch in enumerate(batch_loader.train_next_batch(5)):
     break
@@ -123,8 +126,8 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.topk(1)[1]
     # res=res.view(b,s)
     rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
-    rewards=t.exp(target-rewards)
-    print('rewards: ',rewards)
+    print('rewards: ',rewards,target)    
+    rewards=(target-rewards)**2
     loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
     gen_optimizer.zero_grad()
     loss.backward()
@@ -133,10 +136,10 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     del loss
 
     print('train discriminator')
-    for _round in range(3):
+    for _round in range(5):
         #sample positive and negative samples
         pos=batch_loader2.gen_positive_sample(100)
-        neg=generator.random_sample_n(10,use_cuda)
+        neg=generator.random_sample_n(100,use_cuda)
         data=pos[0]+neg
         target=pos[1]+[0]*len(neg)
         index=np.arange(len(data))
@@ -182,6 +185,9 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
         print('---SAMPLE LOSS---\n {}'.format(loss))
         print('-------------')
         
+        # save model
+        t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+        t.save(generator.state_dict(),PRETRAIN_GEN_PATH)
         # print('sample result: ')
         # res=res.cpu().numpy()
         # print(res)
