@@ -28,5 +28,4 @@ class Encoder(nn.Module):
         c1,c2=final_cell_state[0],final_cell_state[1]
         final_hidden_state=torch.cat([h1,h2],dim=1)
         final_cell_state=torch.cat([c1,c2],dim=1)
-        print(final_cell_state.size())
         return final_hidden_state,final_cell_state
