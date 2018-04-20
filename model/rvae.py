@@ -100,13 +100,9 @@ class RVAE(nn.Module):
 
                 input=t.multinomial(F.softmax(out,dim=1),1)
                 input=self.embedding(input)
-            out=Variable(t.cat(res,1),requires_grad=True)
-            out=out.view(-1,self.params.vocab_size)
+            out=Variable(t.cat(res,0),requires_grad=True)
         rec_loss=F.cross_entropy(out,target.view(-1))
-        # for b in range(batch):
-        #     #real seq length
-        #     l=real_seq_len[b]
-        #     rec_loss+=F.nll_loss(out[b][:l,:],target[b][:l]) 
+
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
         return rec_loss,kld,self.kl_weight(i)
@@ -264,12 +260,20 @@ class RVAE(nn.Module):
         # hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0.0,hidden)
-            words=t.multinomial(F.softmax(out,dim=1), 1)
+            prediction=F.softmax(out,dim=1)
+            words=[]
+            for b in range(batch):
+                word=np.random.choice(np.arange(self.params.vocab_size),p=prediction.data.cpu().numpy()[b])
+                words+=[word]
+            words=Variable(t.from_numpy(np.array(words))).long().view(batch,-1)
+            if use_cuda:
+                words=words.cuda()
+            # words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
             if words.data.cpu().numpy()[0]==1:
                 break
             res+=[words.data]
-            decode_input=words.view(batch,-1)
+            decode_input=words
             decode_input=self.embedding(decode_input)
             if use_cuda:
                 decode_input=decode_input.cuda()
