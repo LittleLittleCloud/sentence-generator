@@ -40,9 +40,9 @@ class RVAE(nn.Module):
         if z is None:
             encode_input=self.embedding(encode_input)
             final_hidden_state,final_cell_state=self.encoder(encode_input) 
-            [_,batch,hidden_size]=final_hidden_state.size()
-            final_hidden_state=final_hidden_state.view(-1,hidden_size)
-            final_cell_state=final_cell_state.view(-1,hidden_size)
+            [batch,hidden_size]=final_hidden_state.size()
+            # final_hidden_state=final_hidden_state.view(-1,hidden_size)
+            # final_cell_state=final_cell_state.view(-1,hidden_size)
             logvar=t.exp(-F.relu(self.logvar(final_hidden_state)))  #make sure logvar in 
             mu=self.mu(final_hidden_state)
             logvar=logvar.view(batch,-1)
@@ -78,7 +78,6 @@ class RVAE(nn.Module):
         encode_input=Variable(t.from_numpy(encode_input)).long()
         decode_input=Variable(t.from_numpy(decode_input)).long()
         target=Variable(t.from_numpy(target)).long()
-        
         if use_cuda:
             #sorry
             encode_input=encode_input.cuda()
@@ -102,7 +101,7 @@ class RVAE(nn.Module):
                 input=self.embedding(input)
             out=Variable(t.cat(res,0),requires_grad=True)
         rec_loss=F.cross_entropy(out,target.view(-1))
-
+        # print((out.view(-1).topk(1)[1]==target.view(-1)).data.cpu().numpy())
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
         return rec_loss,kld,self.kl_weight(i)

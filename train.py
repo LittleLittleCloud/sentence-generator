@@ -37,7 +37,7 @@ coef_list=[]
 re_list=[]
 test_batch=batch_loader.test_next_batch(1)
 
-for i,batch in enumerate(batch_loader.train_next_batch(4)):
+for i,batch in enumerate(batch_loader.train_next_batch(3)):
     if i%101==0:
         sample=batch[0][0,:].reshape(1,-1)
         sentence=model.sample(sample,use_cuda).cpu().numpy()[0]
@@ -46,7 +46,7 @@ for i,batch in enumerate(batch_loader.train_next_batch(4)):
         print('origin',' '.join(s))
         print('sample',' '.join(sentence))
         continue
-    use_teacher=np.random.rand()>0.1
+    use_teacher=np.random.rand()>-0.1
     ce,kld,coef=model.REC_LOSS(batch,0.1,use_cuda,use_teacher)
     reencode_loss=model.REENCODE_LOSS(batch,use_cuda)
     loss=ce+coef*kld#+coef*reencode_loss
