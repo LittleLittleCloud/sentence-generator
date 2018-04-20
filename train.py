@@ -49,7 +49,7 @@ for i,batch in enumerate(batch_loader.train_next_batch(4)):
     use_teacher=np.random.rand()>0.1
     ce,kld,coef=model.REC_LOSS(batch,0.1,use_cuda,use_teacher)
     reencode_loss=model.REENCODE_LOSS(batch,use_cuda)
-    loss=ce+coef*kld+coef*reencode_loss
+    loss=ce+coef*kld#+coef*reencode_loss
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()

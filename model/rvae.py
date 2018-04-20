@@ -48,10 +48,9 @@ class RVAE(nn.Module):
             logvar=logvar.view(batch,-1)
             mu=mu.view(batch,-1)
             std=t.exp(0.5*logvar)
-            z=Variable(std.data.new(std.size()).normal_())
-            if use_cuda:
-                z=z.cuda()
-            z=z*std+mu
+            # z=Variable(std.data.new(std.size()).normal_())
+            # z=z*std+mu
+            z=mu
             KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1))
             KLD=KLD.mean()
             
@@ -264,7 +263,7 @@ class RVAE(nn.Module):
         # hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         # hidden=None
         for i in range(seq_len):
-            out, hidden=self.decoder.forward(decode_input,z,0,hidden)
+            out, hidden=self.decoder.forward(decode_input,z,0.0,hidden)
             words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
             if words.data.cpu().numpy()[0]==1:
