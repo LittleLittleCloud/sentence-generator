@@ -259,15 +259,15 @@ class RVAE(nn.Module):
         # hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,z,0.0,hidden)
-            prediction=F.softmax(out,dim=1)
-            words=[]
-            for b in range(batch):
-                word=np.random.choice(np.arange(self.params.vocab_size),p=prediction.data.cpu().numpy()[b])
-                words+=[word]
-            words=Variable(t.from_numpy(np.array(words))).long().view(batch,-1)
-            if use_cuda:
-                words=words.cuda()
-            # words=t.multinomial(F.softmax(out,dim=1), 1)
+            # prediction=F.softmax(out,dim=1)
+            # words=[]
+            # for b in range(batch):
+                # word=np.random.choice(np.arange(self.params.vocab_size),p=prediction.data.cpu().numpy()[b])
+                # words+=[word]
+            # words=Variable(t.from_numpy(np.array(words))).long().view(batch,-1)
+            # if use_cuda:
+                # words=words.cuda()
+            words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
             if words.data.cpu().numpy()[0]==1:
                 break
