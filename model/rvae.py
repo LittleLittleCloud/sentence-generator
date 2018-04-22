@@ -18,8 +18,8 @@ class RVAE(nn.Module):
         self.mu=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
         self.params=params
         self.embedding=Embedding(params)
-        self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
-        # self.latent=nn.Linear(params.encode_rnn_size*2,params.decode_rnn_size)
+        # self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
+        self.latent=nn.Linear(params.encode_rnn_size*2,params.decode_rnn_size)
         
         self.i=Variable(t.FloatTensor(1),requires_grad=False)
         self.use_cuda=params.use_cuda
@@ -60,10 +60,11 @@ class RVAE(nn.Module):
             
         else:
             KLD=None
-        # init_state=t.cat([final_hidden_state,final_cell_state],0)
-        # init_state=self.latent(init_state).view(-1,1,batch,self.params.decode_rnn_size)
-        if init_state is None:
-            init_state=F.relu(self.latent(z)).view(-1,1,batch,self.params.decode_rnn_size)
+        init_state=t.cat([final_hidden_state,final_cell_state],0)
+        # print(init_state.size())
+        init_state=self.latent(init_state).view(-1,1,batch,self.params.decode_rnn_size)
+        # if init_state is None:
+        #     init_state=F.relu(self.latent(z)).view(-1,1,batch,self.params.decode_rnn_size)
         return init_state,KLD,z
 
         # decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
