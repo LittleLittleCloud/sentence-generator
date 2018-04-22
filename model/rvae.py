@@ -43,15 +43,17 @@ class RVAE(nn.Module):
             [batch,hidden_size]=final_hidden_state.size()
             # final_hidden_state=final_hidden_state.view(-1,hidden_size)
             # final_cell_state=final_cell_state.view(-1,hidden_size)
-            logvar=t.exp(-F.relu(self.logvar(final_hidden_state)))  #make sure logvar in 
+            logvar=self.logvar(final_hidden_state)  #make sure logvar in 
             mu=self.mu(final_hidden_state)
-            logvar=logvar.view(batch,-1)
+            logvar=-F.relu(logvar.view(batch,-1))
             mu=mu.view(batch,-1)
             std=t.exp(0.5*logvar)
-            # z=Variable(std.data.new(std.size()).normal_())
+            z=Variable(std.data.new(std.size()).normal_())
             # z=z*std+mu
-            z=mu
-            KLD=(-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1))
+            # print(t.sum((std*z)**2,1))
+            z=mu+z*std
+
+            KLD=-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1)
             KLD=KLD.mean()
             
             
