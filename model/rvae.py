@@ -45,8 +45,6 @@ class RVAE(nn.Module):
             # final_cell_state=final_cell_state.view(-1,hidden_size)
             logvar=self.logvar(final_hidden_state)  #make sure logvar in 
             mu=self.mu(final_hidden_state)
-            logvar=-F.relu(logvar.view(batch,-1))
-            mu=mu.view(batch,-1)
             std=t.exp(0.5*logvar)
             z=Variable(std.data.new(std.size()).normal_())
             # z=z*std+mu

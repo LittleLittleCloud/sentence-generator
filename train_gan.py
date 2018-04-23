@@ -42,24 +42,23 @@ if use_cuda:
 if os.path.isfile(PRETRAIN_DIS_PATH):
     print('find PRETRAINED_DIS_FILE')
     discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
-else:
-    print('pre-train dis begin')
-    for _ in range(2):
-        test_batch=batch_loader2.test_next_batch(30)
-        for i,batch in enumerate(batch_loader2.train_next_batch((32))):
-            loss=train_step(batch,t.cuda.is_available())
-            dis_optimizer.zero_grad()
-            loss.backward()
-            dis_optimizer.step()
-            loss_lst+=[loss.data]
-            print(loss.data)
-            if i%100==0:
-                test=next(test_batch)
-                test_loss=validate(test,t.cuda.is_available())
-                print("train: ",sum(loss_lst[-100:])/100)
-                print("test: ",test_loss)
-                t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
-    print('pre-train dis finish')
+
+print('pre-train dis begin')
+for _ in range(10):
+    test_batch=batch_loader2.test_next_batch(30)
+    for i,batch in enumerate(batch_loader2.train_next_batch((32))):
+        loss=train_step(batch,t.cuda.is_available())
+        dis_optimizer.zero_grad()
+        loss.backward()
+        dis_optimizer.step()
+        loss_lst+=[loss.data]
+        if i%100==0:
+            test=next(test_batch)
+            test_loss=validate(test,t.cuda.is_available())
+            print("train: ",sum(loss_lst[-100:])/100)
+            print("test: ",test_loss)
+t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+print('pre-train dis finish')
 
 
 #step2

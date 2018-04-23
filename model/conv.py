@@ -18,8 +18,11 @@ class Conv(nn.Module):
         assert embedding_size==self.params.embedding_size, "embedding size not match"
 
         x=x.transpose(1,2).contiguous()
-        xs=[F.tanh(F.conv1d(x,kernel)).max(2)[0] for kernel in self.kernels] # not squeeze in 0.3
+        # print(x.size())
+        xs=[F.tanh(0.001*F.conv1d(x,kernel)).max(2)[0] for kernel in self.kernels] # not squeeze in 0.3
+        
         output=t.cat(xs,1)
+        # print("output: ",output.size(),len(xs),t.sum(output,1))
 
         return output
 
