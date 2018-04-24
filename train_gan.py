@@ -43,21 +43,21 @@ if os.path.isfile(PRETRAIN_DIS_PATH):
     print('find PRETRAINED_DIS_FILE')
     discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
 
-print('pre-train dis begin')
-for _ in range(10):
-    test_batch=batch_loader2.test_next_batch(30)
-    for i,batch in enumerate(batch_loader2.train_next_batch((32))):
-        loss=train_step(batch,t.cuda.is_available())
-        dis_optimizer.zero_grad()
-        loss.backward()
-        dis_optimizer.step()
-        loss_lst+=[loss.data]
-        if i%100==0:
-            test=next(test_batch)
-            test_loss=validate(test,t.cuda.is_available())
-            print("train: ",sum(loss_lst[-100:])/100)
-            print("test: ",test_loss)
-t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+# print('pre-train dis begin')
+# for _ in range(10):
+#     test_batch=batch_loader2.test_next_batch(30)
+#     for i,batch in enumerate(batch_loader2.train_next_batch((32))):
+#         loss=train_step(batch,t.cuda.is_available())
+#         dis_optimizer.zero_grad()
+#         loss.backward()
+#         dis_optimizer.step()
+#         loss_lst+=[loss.data]
+#         if i%100==0:
+#             test=next(test_batch)
+#             test_loss=validate(test,t.cuda.is_available())
+#             print("train: ",sum(loss_lst[-100:])/100)
+#             print("test: ",test_loss)
+# t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
 print('pre-train dis finish')
 
 
@@ -131,8 +131,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()
-    gen_loss+=[loss.cpu().data.numpy()[0]]
-    del loss
+    gen_loss+=[loss.data]
 
     print('train discriminator')
     for _round in range(5):
@@ -161,8 +160,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
             loss.backward()
             dis_optimizer.step()
             dis_loss+=[loss.cpu().data.numpy()[0]]
-            loss.detach_()
-            del loss
+
 
     if round%10==0:
         print('---PG LOSS---')

@@ -156,15 +156,13 @@ class RVAE(nn.Module):
         [batch,seq_len,embedding_size]=decode_input.size()
         input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
         pg_loss=0
-        rewards=Variable(rewards)
         for i in range(1,seq_len):
             out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
-            # out.detach_()
             # hidden.detach_()
             if use_teacher:
                 input=decode_input[:,i,:].contiguous().view(batch,1,embedding_size)
             else:
-                input=t.multinomial(F.softmax(out), 1)
+                input=t.multinomial(F.softmax(out), 1).data
                 input=self.embedding(input)
             for j in range(batch):
                 pg_loss+=-F.log_softmax(out)[j][target.data[j][i-1]]*rewards[j]
