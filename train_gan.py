@@ -113,31 +113,33 @@ test_input=batch_loader2.test_next_batch(5,raw=True)
 
 for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
-    batch=seq_data[i:i+BATCH_SIZE]
-    target=t.from_numpy(np.array(batch_loader2.train_label[i:i+BATCH_SIZE])).float()
-    if use_cuda:
-        target=target.cuda()
-    print('train generator')
-    encode_input,_,_=batch_loader.to_input(batch)
-    res=generator.sample(encode_input,use_cuda)
-    [b,s]=res.size()
-    # res=res.view(-1,v)
-    # res=res.topk(1)[1]
-    # res=res.view(b,s)
-    rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
-    print('rewards: ',rewards,target)    
-    rewards=(target-rewards)**2
-    loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
-    gen_optimizer.zero_grad()
-    loss.backward()
-    gen_optimizer.step()
-    gen_loss+=[loss.data]
+    # batch=seq_data[i:i+BATCH_SIZE]
+    # target=t.from_numpy(np.array(batch_loader2.train_label[i:i+BATCH_SIZE])).float()
+    # if use_cuda:
+    #     target=target.cuda()
+    # print('train generator')
+    # encode_input,_,_=batch_loader.to_input(batch)
+    # res=generator.sample(encode_input,use_cuda)
+    # [b,s]=res.size()
+    # # res=res.view(-1,v)
+    # # res=res.topk(1)[1]
+    # # res=res.view(b,s)
+    # rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
+    # print('rewards: ',rewards,target)    
+    # rewards=(target-rewards)**2
+    # loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
+    # gen_optimizer.zero_grad()
+    # loss.backward()
+    # gen_optimizer.step()
+    # gen_loss+=[loss.data]
 
     print('train discriminator')
     for _round in range(5):
         #sample positive and negative samples
         pos=batch_loader2.gen_positive_sample(100)
         neg=generator.random_sample_n(100,use_cuda)
+        print(' '.join([preprocess.index_to_word[i] for i in neg[0]]))
+
         data=pos[0]+neg
         target=pos[1]+[0]*len(neg)
         index=np.arange(len(data))
@@ -176,7 +178,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
         encode_input,_,_=batch_loader.to_input(input[0])
 
         res=generator.sample(encode_input,use_cuda)
-        res=res.view(b,-1)
+        # res=res.view(b,-1)
         y=discriminator.batchClassify(Variable(res)).view(-1).data.cpu().numpy()
         loss=((y-input[1])**2).mean()
         print('---SAMPLE LOSS---\n {}'.format(loss))

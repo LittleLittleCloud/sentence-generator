@@ -296,7 +296,7 @@ class RVAE(nn.Module):
         hidden=None
         for i in range(seq_len):
             out, hidden=self.decoder.forward(decode_input,seed,0,hidden)
-            word=t.multinomial(t.exp(out), 1).data.cpu().numpy()[0]
+            word=t.multinomial(F.softmax(out,1), 1).data.cpu().numpy()[0]
 
             #the end token
             if word==1:
