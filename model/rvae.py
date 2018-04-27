@@ -165,7 +165,7 @@ class RVAE(nn.Module):
                 input=t.multinomial(F.softmax(out), 1).data
                 input=self.embedding(input)
             for j in range(batch):
-                pg_loss+=-F.log_softmax(out)[j][target.data[j][i-1]]*rewards[j]
+                pg_loss+=-F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j]
         return pg_loss/(batch*seq_len)
 
 

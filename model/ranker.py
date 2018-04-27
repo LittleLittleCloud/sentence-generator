@@ -18,9 +18,10 @@ class Ranker(nn.Module):
         self.params=params
         self.embedding=Embedding(params)
         self.conv=Conv(params)
-        self.fc=nn.Linear(self.params.fc_input_size,1)
+        self.fc=nn.Linear(self.params.fc_input_size,self.params.hidden)
+        self.out=nn.Linear(self.params.hidden,1)
 
-    def forward(self,input):
+    def forward(self,input,dropout=0.0):
         '''
         input [batch_size,seq_len]
         output [batch_size]
@@ -28,12 +29,15 @@ class Ranker(nn.Module):
         (batch_size,_)=input.size()
         embedding=self.embedding(input)
         conv=self.conv(embedding)
+        conv=F.dropout(conv,dropout)
         output=self.fc(conv)
+        output=self.out(output)
+        output=F.sigmoid(output)
         return output.view(batch_size,-1)
 
 
     def trainer(self,optimizer,loss_f):
-        def train(batch,use_cuda=True):
+        def train(batch,use_cuda=True,dropout=0.5):
             X,y=batch
             input=Variable(t.from_numpy(X),requires_grad=False).long()
             label=Variable(t.from_numpy(y),requires_grad=False).float()
@@ -41,7 +45,7 @@ class Ranker(nn.Module):
                 #sorry
                 input=input.cuda()
                 label=label.cuda()
-            y=self.forward(input)
+            y=self.forward(input,dropout)
             loss=loss_f(y,label)
             return loss
             # optimizer.zero_grad()
@@ -51,7 +55,7 @@ class Ranker(nn.Module):
             # return loss.data
         return train
 
-    def batchClassify(self,input):
+    def batchClassify(self,input,dropout=0.0):
         '''
 
         input [batch, seq_len]
@@ -60,7 +64,7 @@ class Ranker(nn.Module):
 
         '''
 
-        return self.forward(input)
+        return self.forward(input,dropout)
 
     def validater(self,loss_f):
         def validate(batch,use_cuda=True):

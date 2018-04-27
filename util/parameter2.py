@@ -1,5 +1,5 @@
 class Parameter:
-    def __init__(self,vocab_size,embedding_path,embedding_size):
+    def __init__(self,vocab_size,embedding_path,embedding_size,ranker_hidden_size=32):
         self.vocab_size=vocab_size
         self.embedding_path=embedding_path
         self.embedding_size=embedding_size
@@ -7,5 +7,6 @@ class Parameter:
         self.fc_input_size=sum([oc for (_,oc) in self.kernels])
         # sorry for the compatibality
         self.word_embed_size=embedding_size
+        self.hidden=ranker_hidden_size
 
         
