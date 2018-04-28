@@ -166,7 +166,7 @@ class RVAE(nn.Module):
                 input=self.embedding(input)
             for j in range(batch):
                 pg_loss+=-F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j]
-        return pg_loss/(batch*seq_len)
+        return pg_loss/batch
 
 
     def trainer(self, optimizer):
