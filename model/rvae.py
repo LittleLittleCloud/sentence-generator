@@ -64,7 +64,7 @@ class RVAE(nn.Module):
         init_state=self.latent(init_state).view(-1,1,batch,self.params.decode_rnn_size)
         # if init_state is None:
         #     init_state=F.relu(self.latent(z)).view(-1,1,batch,self.params.decode_rnn_size)
-        return init_state,KLD,z
+        return init_state,KLD,z,mu
 
         # decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
         # return decode_final_state[0],decode_final_state[1],KLD
@@ -86,7 +86,7 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
             target=target.cuda()
 
-        hidden,kld,z=self.forward(encode_input)
+        hidden,kld,z,_=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
         [batch,seq_len,embedding_size]=decode_input.size()
         
@@ -116,8 +116,8 @@ class RVAE(nn.Module):
             #sorry
             input=input.cuda()
             label=label.cuda()
-        _,_,z=self.forward(input) #z:[batch,latent]
-        target=F.tanh(self.ranker(z)) #target: [batch]
+        _,_,_,z=self.forward(input) #z:[batch,latent]
+        target=F.sigmoid(self.ranker(z)) #target: [batch]
         loss=F.mse_loss(target,label)
         return loss
     
@@ -129,8 +129,8 @@ class RVAE(nn.Module):
             #sorry
             input=input.cuda()
             label=label.cuda()
-        _,_,z=self.forward(input) #z:[batch,latent]
-        target=F.tanh(self.ranker(z)) #target: [batch]
+        _,_,_,z=self.forward(input) #z:[batch,latent]
+        target=F.sigmoid(self.ranker(z)) #target: [batch]
         loss=F.mse_loss(target,label)
         return loss.data           
 
@@ -139,8 +139,8 @@ class RVAE(nn.Module):
         if use_cuda:
             #sorry
             input=input.cuda()
-        _,_,z=self.forward(input) #z:[batch,latent]
-        target=self.ranker(z) #target: [batch]
+        _,_,_,z=self.forward(input) #z:[batch,latent]
+        target=F.sigmoid(self.ranker(z)) #target: [batch]
         return target.data
 
 
@@ -159,8 +159,8 @@ class RVAE(nn.Module):
             #sorry
             encode_input=encode_input.cuda()
 
-        _,_,z_origin=self.forward(encode_input)
-        _,_,z_new=self.forward(Variable(sample_input))
+        _,_,z_origin,_=self.forward(encode_input)
+        _,_,z_new,_=self.forward(Variable(sample_input))
 
 
         return t.sum((z_origin-z_new)**2,1).mean()
@@ -185,7 +185,7 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
             target=target.cuda()
         
-        hidden,_,z=self.forward(encode_input)
+        hidden,_,z,_=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
 
         # decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
@@ -289,7 +289,7 @@ class RVAE(nn.Module):
         res=[decode_input.view(batch,-1).data]
         answer=encode_input.clone().view(seq_len,batch)
         decode_input=self.embedding(decode_input)
-        hidden,_,z=self.forward(encode_input)
+        hidden,_,z,_=self.forward(encode_input)
         [batch_size,_]=z.size()                
         # hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
         # hidden=None
