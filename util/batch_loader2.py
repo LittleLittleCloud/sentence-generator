@@ -2,17 +2,12 @@ import numpy as np
 import operator
 
 class Batch:
-    def __init__(self, data, train_test_split,index2word):
+    def __init__(self, data, train_test_split,index2word,max_len=1000):
         '''
         data: [num,2]
         '''
         assert train_test_split<1 and train_test_split>0
-        self.train_test_split=train_test_split
-        self.index=np.arange(len(data))
-        train_len=int(len(data)*train_test_split)
 
-        self.train_index=self.index[:train_len]
-        self.test_index=self.index[train_len:]
         self.unknown_token='<ukn>'
         self.num_token='#'
         self.pad_token='_'
@@ -21,14 +16,25 @@ class Batch:
         self.index_to_word=['>','\r\n','_','<ukn>','#']+self.index_to_word
         self.vocab_size=len(self.index_to_word)
         self.word_to_index={w:i for i,w in enumerate(self.index_to_word)}
-        self.data,self.label=self.preprocess(data)
+        self.data,self.label=self.preprocess(data,max_len)
+        self.index=np.arange(len(self.data))
+        train_len=int(len(self.data)*train_test_split)
+        self.train_index=self.index[:train_len]
+        self.test_index=self.index[train_len:]
         self.train_data=[self.data[i] for i in self.train_index]
         self.train_label=[self.label[i] for i in self.train_index]
+        self.train_test_split=train_test_split
+        print('data size ',len(self.data))
+
     
-    def preprocess(self,raw_data):
+    def preprocess(self,raw_data,max_len):
         '''
         raw_data: [num,2] [str;float]
         '''
+        sentences=raw_data[:,0]
+        sentences_len=np.array([len(x.split()) for x in sentences])
+        mask=sentences_len<max_len
+        raw_data=raw_data[mask]
         sentences=raw_data[:,0]
         label=raw_data[:,1]
         
@@ -39,6 +45,7 @@ class Batch:
         tokens=[sentence.split() for sentence in sentences]
 
         for i,sentence in enumerate(tokens):
+
             for j,word in enumerate(sentence):
                 tokens[i][j]=self.word_to_index.get(word,self.word_to_index[self.unknown_token])
         return tokens,label
