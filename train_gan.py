@@ -26,42 +26,6 @@ dis_params=Parameter2(batch_loader2.vocab_size,'embedding.npy',100)
 use_cuda=t.cuda.is_available()
 
 #step 1 
-#pre-train discriminator
-
-discriminator=Ranker(dis_params)
-dis_optimizer=Adam(discriminator.learnable_parameters())
-MSE_LOSS=nn.MSELoss()
-train_step=discriminator.trainer(dis_optimizer,MSE_LOSS)
-validate=discriminator.validater(MSE_LOSS)
-loss_lst=[]
-if use_cuda:
-    discriminator=discriminator.cuda()
-    MSE_LOSS=MSE_LOSS.cuda()
-
-#check if exist trained model
-if os.path.isfile(PRETRAIN_DIS_PATH):
-    print('find PRETRAINED_DIS_FILE')
-    discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
-
-print('pre-train dis begin')
-for _ in range(100):
-    test_batch=batch_loader2.test_next_batch(30)
-    for i,batch in enumerate(batch_loader2.train_next_batch((32))):
-        loss=train_step(batch,t.cuda.is_available(),0.5)
-        dis_optimizer.zero_grad()
-        loss.backward()
-        dis_optimizer.step()
-        loss_lst+=[loss.data]
-        if i%100==0:
-            test=next(test_batch)
-            test_loss=validate(test,t.cuda.is_available())
-            print("train: ",sum(loss_lst[-100:])/100)
-            print("test: ",test_loss)
-t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
-print('pre-train dis finish')
-
-
-#step2
 #pre-train generater
 
 with open('train','r',encoding='utf-8') as f:
@@ -96,6 +60,33 @@ for i,batch in enumerate(batch_loader.train_next_batch(5)):
     if i%10==0:
         print('ten step: ce:{}, kld:{} '.format(ce,kld))
     del loss,ce,kld
+
+
+
+#step2
+#pre-train discriminator
+
+dis_optimizer=Adam([p for p in generator.ranker.parameters()])
+train_step=generator.RANKER_MSE_LOSS
+validate=generator.ranker_validator
+loss_lst=[]
+
+
+print('pre-train dis begin')
+for _ in range(1):
+    test_batch=batch_loader2.test_next_batch(10)
+    for i,batch in enumerate(batch_loader2.train_next_batch((10))):
+        loss=train_step(batch,t.cuda.is_available())
+        dis_optimizer.zero_grad()
+        loss.backward()
+        dis_optimizer.step()
+        loss_lst+=[loss.data]
+        if i%100==0:
+            test=next(test_batch)
+            test_loss=validate(test,t.cuda.is_available())
+            print("train: ",sum(loss_lst[-100:])/100)
+            print("test: ",test_loss)
+print('pre-train dis finish')
     
 
 
@@ -124,7 +115,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.view(-1,v)
     # res=res.topk(1)[1]
     # res=res.view(b,s)
-    rewards=discriminator.batchClassify(Variable(res)).data.view(-1) #[b]
+    rewards=generator.batchClassify(res,use_cuda).view(-1) #[b]
     rewards=(target-rewards)**2
     loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
     gen_optimizer.zero_grad()
@@ -181,13 +172,13 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
         res=generator.sample(encode_input,use_cuda)
         # res=res.view(b,-1)
-        y=discriminator.batchClassify(Variable(res)).view(-1).data.cpu().numpy()
+        y=generator.batchClassify(res,use_cuda).view(-1).cpu().numpy()
         loss=((y-input[1])**2).mean()
         print('---SAMPLE LOSS---\n {}'.format(loss))
         print('-------------')
         
         # save model
-        t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+        # t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
         t.save(generator.state_dict(),PRETRAIN_GEN_PATH)
         # print('sample result: ')
         # res=res.cpu().numpy()

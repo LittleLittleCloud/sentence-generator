@@ -18,6 +18,7 @@ class RVAE(nn.Module):
         self.mu=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
         self.params=params
         self.embedding=Embedding(params)
+        self.ranker=nn.Linear(params.latent_variable_size,1)
         # self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
         self.latent=nn.Linear(params.encode_rnn_size*2,params.decode_rnn_size)
         
@@ -106,6 +107,42 @@ class RVAE(nn.Module):
         i=self.i.data.cpu().numpy()[0]           
         self.i+=1
         return rec_loss,kld,self.kl_weight(i)
+
+    def RANKER_MSE_LOSS(self,batch,use_cuda):
+        X,y=batch
+        input=Variable(t.from_numpy(X),requires_grad=False).long()
+        label=Variable(t.from_numpy(y),requires_grad=False).float()
+        if use_cuda:
+            #sorry
+            input=input.cuda()
+            label=label.cuda()
+        _,_,z=self.forward(input) #z:[batch,latent]
+        target=F.tanh(self.ranker(z)) #target: [batch]
+        loss=F.mse_loss(target,label)
+        return loss
+    
+    def ranker_validator(self,batch,use_cuda):
+        X,y=batch
+        input=Variable(t.from_numpy(X),volatile=True).long()
+        label=Variable(t.from_numpy(y),volatile=True).float()
+        if use_cuda:
+            #sorry
+            input=input.cuda()
+            label=label.cuda()
+        _,_,z=self.forward(input) #z:[batch,latent]
+        target=F.tanh(self.ranker(z)) #target: [batch]
+        loss=F.mse_loss(target,label)
+        return loss.data           
+
+    def batchClassify(self,encode_input,use_cuda=True):
+        input=Variable(encode_input,volatile=True).long()
+        if use_cuda:
+            #sorry
+            input=input.cuda()
+        _,_,z=self.forward(input) #z:[batch,latent]
+        target=self.ranker(z) #target: [batch]
+        return target.data
+
 
     def REENCODE_LOSS(self,encode_input,use_cuda):
         '''
