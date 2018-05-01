@@ -110,13 +110,15 @@ class RVAE(nn.Module):
 
     def RANKER_MSE_LOSS(self,batch,use_cuda):
         X,y=batch
-        input=Variable(t.from_numpy(X),requires_grad=False).long()
-        label=Variable(t.from_numpy(y),requires_grad=False).float()
+        input=Variable(t.from_numpy(X),volatile=True).long()
+        label=Variable(t.from_numpy(y),volatile=True).float()
         if use_cuda:
             #sorry
             input=input.cuda()
             label=label.cuda()
         _,_,_,z=self.forward(input) #z:[batch,latent]
+        #sorry
+        z=Variable(z.data)
         target=F.sigmoid(self.ranker(z)) #target: [batch]
         loss=F.mse_loss(target,label)
         return loss
