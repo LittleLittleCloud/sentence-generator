@@ -116,8 +116,9 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.topk(1)[1]
     # res=res.view(b,s)
     rewards=generator.batchClassify(res,use_cuda).view(-1) #[b]
-    rewards=(target-rewards)**2
-    loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards)
+    encode_input,decode_input,_=batch_loader.to_input(batch)
+
+    loss=generator.PG_LOSS((encode_input,decode_input,res.cpu().numpy()),0,use_cuda,rewards)
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()
@@ -172,7 +173,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
         res=generator.sample(encode_input,use_cuda)
         # res=res.view(b,-1)
-        y=generator.batchClassify(res,use_cuda).view(-1).cpu().numpy()
+        y=generator.batchClassify(res,use_cuda=True).view(-1).cpu().numpy()
         loss=((y-input[1])**2).mean()
         print('---SAMPLE LOSS---\n {}'.format(loss))
         print('-------------')

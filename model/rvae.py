@@ -117,7 +117,6 @@ class RVAE(nn.Module):
             input=input.cuda()
             label=label.cuda()
         _,_,_,z=self.forward(input) #z:[batch,latent]
-        #sorry
         z=Variable(z.data)
         target=F.sigmoid(self.ranker(z)) #target: [batch]
         loss=F.mse_loss(target,label)
@@ -192,7 +191,8 @@ class RVAE(nn.Module):
 
         # decode_input=decode_input.permute(1,0,2) #[seq_len,batch,embedding_size]
         # target=target.permute(1,0)             #[seq_len,batch]
-        [batch,seq_len,embedding_size]=decode_input.size()
+        [batch,_,embedding_size]=decode_input.size()
+        [_,seq_len]=target.size()
         input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
         pg_loss=0
         for i in range(1,seq_len):
@@ -307,7 +307,7 @@ class RVAE(nn.Module):
                 # words=words.cuda()
             words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
-            if words.data.cpu().numpy()[0]==1:
+            if np.all(words.data.cpu().numpy()==1):
                 break
             res+=[words.data]
             decode_input=words
