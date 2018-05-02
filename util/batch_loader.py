@@ -30,7 +30,7 @@ class Batch:
             cur=end
             encode_input=[data[i] for i in train_index[start:end]]
             decode_input=[[0]+data[i] for i in train_index[start:end]]
-            target=[data[i]+[1] for i in train_index[start:end]]
+            target=[data[i]+[2] for i in train_index[start:end]]
             max_len=max(len(x) for x in encode_input)
             real_len=[len(x) for x in encode_input]
 
