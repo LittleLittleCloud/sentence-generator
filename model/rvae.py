@@ -238,8 +238,8 @@ class RVAE(nn.Module):
                 # words=words.cuda()
             words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
-            if np.all(words.data.cpu().numpy()==2):
-                break
+            # if np.all(words.data.cpu().numpy()==2):
+            #     break
             res+=[words.data]
             decode_input=words
             decode_input=self.embedding(decode_input)
