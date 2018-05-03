@@ -238,7 +238,7 @@ class RVAE(nn.Module):
                 # words=words.cuda()
             words=t.multinomial(F.softmax(out,dim=1), 1)
             #the end token
-            if np.all(words.data.cpu().numpy()==1):
+            if np.all(words.data.cpu().numpy()==2):
                 break
             res+=[words.data]
             decode_input=words

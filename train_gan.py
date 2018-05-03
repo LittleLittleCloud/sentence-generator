@@ -65,14 +65,25 @@ for i,batch in enumerate(batch_loader.train_next_batch(5)):
 
 #step2
 #pre-train discriminator
-
-dis_optimizer=Adam([p for p in generator.ranker.parameters()])
-train_step=generator.RANKER_MSE_LOSS
-validate=generator.ranker_validator
+params=Parameter2(vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',\
+                    embedding_size=100,ranker_hidden_size=32,dropout=0.2)
+discriminator=Ranker(params)
+# dis_optimizer=Adam([p for p in generator.ranker.parameters()])
+dis_optimizer=Adam(discriminator.learnable_parameters())
+train_step=discriminator.trainer(dis_optimizer,nn.MSELoss())
+# validate=generator.ranker_validator
+validate=discriminator.validater(nn.MSELoss())
 loss_lst=[]
 
+if use_cuda:
+    discriminator=discriminator.cuda()
 
 print('pre-train dis begin')
+
+if os.path.isfile(PRETRAIN_DIS_PATH):
+    print('find PRETRAINED_DIS_FILE')
+    discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
+
 for _ in range(1):
     test_batch=batch_loader2.test_next_batch(10)
     for i,batch in enumerate(batch_loader2.train_next_batch((10))):
@@ -86,6 +97,9 @@ for _ in range(1):
             test_loss=validate(test,t.cuda.is_available())
             print("train: ",sum(loss_lst[-100:])/100)
             print("test: ",test_loss)
+            t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+            
+
 print('pre-train dis finish')
     
 
@@ -115,7 +129,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.view(-1,v)
     # res=res.topk(1)[1]
     # res=res.view(b,s)
-    rewards=generator.batchClassify(res,use_cuda).view(-1) #[b]
+    rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
     encode_input,decode_input,_=batch_loader.to_input(batch)
 
     loss=generator.PG_LOSS((encode_input,decode_input,res.cpu().numpy()),0,use_cuda,rewards)
@@ -173,7 +187,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
         res=generator.sample(encode_input,use_cuda)
         # res=res.view(b,-1)
-        y=generator.batchClassify(res,use_cuda=True).view(-1).cpu().numpy()
+        y=discriminator.batchClassify(res,use_cuda=True).view(-1).cpu().numpy()
         loss=((y-input[1])**2).mean()
         print('---SAMPLE LOSS---\n {}'.format(loss))
         print('-------------')

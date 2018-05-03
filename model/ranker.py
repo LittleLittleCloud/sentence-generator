@@ -17,8 +17,16 @@ class Ranker(nn.Module):
 
         self.params=params
         self.embedding=Embedding(params)
-        self.conv=Conv(params)
-        self.fc=nn.Linear(self.params.fc_input_size,self.params.hidden)
+        self.gru=nn.GRU(
+            input_size=params.embedding_size,
+            hidden_size=params.gru_hidden,
+            num_layers=2,
+            bidirectional=True,
+            batch_first=True
+        )
+        # self.conv=Conv(params)
+        self.fc=nn.Linear(4*self.params.gru_hidden,self.params.hidden)
+        self.dropout_linear = nn.Dropout(p=params.dropout)
         self.out=nn.Linear(self.params.hidden,1)
 
     def forward(self,input,dropout=0.0):
@@ -28,9 +36,12 @@ class Ranker(nn.Module):
         '''
         (batch_size,_)=input.size()
         embedding=self.embedding(input)
-        conv=self.conv(embedding)
-        conv=F.dropout(conv,dropout)
-        output=self.fc(conv)
+        # conv=self.conv(embedding)
+        # conv=F.dropout(conv,dropout)
+        _,hidden=self.gru(embedding)
+        hidden = hidden.permute(1, 0, 2).contiguous()              # batch_size x 4 x hidden_dim
+        output=self.fc(hidden.view(-1,4*self.params.gru_hidden))
+        output=F.tanh(output)
         output=self.out(output)
         output=F.sigmoid(output)
         return output.view(batch_size,-1)
@@ -55,7 +66,7 @@ class Ranker(nn.Module):
             # return loss.data
         return train
 
-    def batchClassify(self,input,dropout=0.0):
+    def batchClassify(self,input,dropout=0.0,use_cuda=True):
         '''
 
         input [batch, seq_len]
@@ -63,14 +74,14 @@ class Ranker(nn.Module):
         return [batch]
 
         '''
-
-        return self.forward(input,dropout)
+        input=Variable(input,volatile=True)
+        return self.forward(input,dropout).data
 
     def validater(self,loss_f):
         def validate(batch,use_cuda=True):
             X,y=batch
-            input=Variable(t.from_numpy(X),requires_grad=False).long()
-            label=Variable(t.from_numpy(y),requires_grad=False).float()
+            input=Variable(t.from_numpy(X),volatile=True).long()
+            label=Variable(t.from_numpy(y),volatile=True).float()
             if use_cuda:
                 #sorry
                 input=input.cuda()
