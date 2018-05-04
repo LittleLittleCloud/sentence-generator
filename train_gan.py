@@ -130,6 +130,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.topk(1)[1]
     # res=res.view(b,s)
     rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
+    print(rewards)
     encode_input,decode_input,_=batch_loader.to_input(batch)
 
     loss=generator.PG_LOSS((encode_input,decode_input,res.cpu().numpy()),0,use_cuda,rewards)
@@ -138,38 +139,37 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     gen_optimizer.step()
     gen_loss+=[loss.data]
 
-    # print('train discriminator')
-    # for _round in range(5):
-    #     #sample positive and negative samples
-    #     pos=batch_loader2.gen_positive_sample(1)
-    #     encode_input,_,_=batch_loader.to_input(pos[0])
-    #     neg=generator.sample(encode_input,use_cuda)
-    #     neg=neg.cpu().numpy().tolist()
-    #     print("neg:",neg)
-    #     # print(' '.join([preprocess.index_to_word[i] for i in neg[0]]))
+    print('train discriminator')
+    for _round in range(1):
+        #sample positive and negative samples
+        pos=batch_loader2.gen_positive_sample(1)
+        encode_input,_,_=batch_loader.to_input(pos[0])
+        neg=generator.sample(encode_input,use_cuda)
+        neg=neg.cpu().numpy().tolist()
+        # print(' '.join([preprocess.index_to_word[i] for i in neg[0]]))
 
-    #     data=pos[0]+neg
-    #     target=pos[1]+[0]*len(neg)
-    #     index=np.arange(len(data))
-    #     np.random.shuffle(index)
-    #     for i in range(0,len(data),32):
-    #         X=[data[_i] for _i in index[i:i+32]]
-    #         y=[target[_i] for _i in index[i:i+32]]
-    #         max_len=max(len(x) for x in X)
+        data=pos[0]+neg
+        target=pos[1]+[0]*len(neg)
+        index=np.arange(len(data))
+        np.random.shuffle(index)
+        for i in range(0,len(data),32):
+            X=[data[_i] for _i in index[i:i+32]]
+            y=[target[_i] for _i in index[i:i+32]]
+            max_len=max(len(x) for x in X)
 
-    #         for i,line in enumerate(X):
-    #             to_add=max_len-len(line)
-    #             X[i]=line+[preprocess.word_to_index['_']]*to_add
+            for i,line in enumerate(X):
+                to_add=max_len-len(line)
+                X[i]=line+[preprocess.word_to_index['_']]*to_add
             
-    #         X=np.array(X)
-    #         y=np.array(y)
+            X=np.array(X)
+            y=np.array(y)
 
-    #         #train
-    #         loss=train_step([X,y],use_cuda=use_cuda)
-    #         dis_optimizer.zero_grad()
-    #         loss.backward()
-    #         dis_optimizer.step()
-    #         dis_loss+=[loss.cpu().data.numpy()[0]]
+            #train
+            loss=train_step([X,y],use_cuda=use_cuda)
+            dis_optimizer.zero_grad()
+            loss.backward()
+            dis_optimizer.step()
+            dis_loss+=[loss.cpu().data.numpy()[0]]
 
 
     if round%10==0:

@@ -186,6 +186,7 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
             target=target.cuda()
         
+        rewards=t.log(rewards+1e-6)
         hidden,_,z,_=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
 
@@ -204,7 +205,7 @@ class RVAE(nn.Module):
                 input=t.multinomial(F.softmax(out), 1).data
                 input=self.embedding(input)
             for j in range(batch):
-                pg_loss+=-F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j]
+                pg_loss+=F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j]
         return pg_loss/batch
 
 
