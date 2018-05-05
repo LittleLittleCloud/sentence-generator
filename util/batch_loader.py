@@ -90,7 +90,7 @@ class Batch:
         max_len=max(len(x) for x in data)
         encode_input=[data[i] for i in range(batch_size)]
         decode_input=[[0]+data[i] for i in range(batch_size)]
-        target=[data[i]+[1] for i in range(batch_size)]
+        target=[data[i]+[2] for i in range(batch_size)]
 
         #sorry again
         for i,line in enumerate(encode_input):
