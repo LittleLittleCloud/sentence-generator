@@ -186,7 +186,6 @@ class RVAE(nn.Module):
             decode_input=decode_input.cuda()
             target=target.cuda()
         
-        rewards=t.log(rewards+1e-6)
         hidden,_,z,_=self.forward(encode_input)
         decode_input=self.embedding(decode_input) #[batch,seq_len,embedding_size]
 
