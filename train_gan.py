@@ -84,20 +84,20 @@ if os.path.isfile(PRETRAIN_DIS_PATH):
     print('find PRETRAINED_DIS_FILE')
     discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
 
-for _ in range(1):
-    test_batch=batch_loader2.test_next_batch(10)
-    for i,batch in enumerate(batch_loader2.train_next_batch((10))):
-        loss=train_step(batch,t.cuda.is_available())
-        dis_optimizer.zero_grad()
-        loss.backward()
-        dis_optimizer.step()
-        loss_lst+=[loss.data]
-        if i%100==0:
-            test=next(test_batch)
-            test_loss=validate(test,t.cuda.is_available())
-            print("train: ",sum(loss_lst[-100:])/100)
-            print("test: ",test_loss)
-            t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+# for _ in range(1):
+#     test_batch=batch_loader2.test_next_batch(10)
+#     for i,batch in enumerate(batch_loader2.train_next_batch((10))):
+#         loss=train_step(batch,t.cuda.is_available())
+#         dis_optimizer.zero_grad()
+#         loss.backward()
+#         dis_optimizer.step()
+#         loss_lst+=[loss.data]
+#         if i%100==0:
+#             test=next(test_batch)
+#             test_loss=validate(test,t.cuda.is_available())
+#             print("train: ",sum(loss_lst[-100:])/100)
+#             print("test: ",test_loss)
+#             t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
             
 
 print('pre-train dis finish')
@@ -125,15 +125,21 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     print('train generator')
     encode_input,_,_=batch_loader.to_input(batch)
     res=generator.sample(encode_input,use_cuda)
+    rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
+    print(rewards)
+    
     [b,s]=res.size()
+    res=res.cpu().numpy()
+    encode_input=res.copy()
+    decode_input=np.concatenate((np.array([0]*b).reshape(b,-1),encode_input),1)
+    target=np.concatenate((encode_input,np.array([0]*b).reshape(b,-1)),1)
+    
     # res=res.view(-1,v)
     # res=res.topk(1)[1]
     # res=res.view(b,s)
-    rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
-    print(rewards)
     # encode_input,decode_input,_=batch_loader.to_input(batch)
 
-    loss=generator.PG_LOSS(batch_loader.to_input(batch),0,use_cuda,rewards,True)
+    loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,rewards,True)
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()
