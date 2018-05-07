@@ -279,7 +279,7 @@ class RVAE(nn.Module):
             decode_input=self.embedding(decode_input)
         return res
 
-    def random_sample_n(self,n,,length,use_cuda):
+    def random_sample_n(self,n,length,use_cuda):
         '''
 
             n: sample n
