@@ -279,7 +279,7 @@ class RVAE(nn.Module):
             decode_input=self.embedding(decode_input)
         return res
 
-    def random_sample_n(self,n,use_cuda):
+    def random_sample_n(self,n,,length,use_cuda):
         '''
 
             n: sample n
@@ -288,7 +288,7 @@ class RVAE(nn.Module):
         '''
         results=[]
         for _ in range(n):
-            results+=[self.random_sample(50,use_cuda)]
+            results+=[self.random_sample(length,use_cuda)]
         return results
 
 
