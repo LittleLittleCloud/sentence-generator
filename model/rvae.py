@@ -59,12 +59,12 @@ class RVAE(nn.Module):
             
         else:
             KLD=None
-        init_state=t.cat([final_hidden_state,final_cell_state],0)
+        # init_state=t.cat([final_hidden_state,final_cell_state],0)
         # print(init_state.size())
-        init_state=self.latent(init_state).view(-1,1,batch,self.params.decode_rnn_size)
+        # init_state=self.latent(init_state).view(-1,1,batch,self.params.decode_rnn_size)
         # if init_state is None:
         #     init_state=F.relu(self.latent(z)).view(-1,1,batch,self.params.decode_rnn_size)
-        return init_state,KLD,z,mu
+        return None,KLD,z,mu
 
         # decode_final_state=self.decoder(decode_input,z,drop_rate,(init_state[0],init_state[1]),concat=True)
         # return decode_final_state[0],decode_final_state[1],KLD
