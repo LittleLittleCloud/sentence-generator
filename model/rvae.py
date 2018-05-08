@@ -226,11 +226,12 @@ class RVAE(nn.Module):
                     input_=self.embedding(input_)
                 sample=t.cat(res,1)
                 reward=dis.batchClassify(sample[:,1:])
+                print(reward)
                 rewards[:,i-1]+=(reward/rollout).view(-1)
                 
             for j in range(batch):
-                pg_loss+=-F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j,i-1]
-        return pg_loss/batch
+                pg_loss+=F.softmax(out,1)[j][target.data[j][i-1]]*rewards[j,i-1]
+        return -pg_loss/batch
 
 
 

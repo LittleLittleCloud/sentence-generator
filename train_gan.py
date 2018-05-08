@@ -33,7 +33,7 @@ with open('train','r',encoding='utf-8') as f:
 preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
-np.save('word_to_index',preprocess.word_to_index)
+np.save('index2word',preprocess.index_to_word)
 params=Parameter(word_embed_size=100,encode_rnn_size=100,latent_variable_size=100,\
             decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
