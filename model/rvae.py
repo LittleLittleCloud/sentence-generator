@@ -167,10 +167,10 @@ class RVAE(nn.Module):
         return t.sum((z_origin-z_new)**2,1).mean()
 
 
-    def PG_LOSS(self,batch,dropout,use_cuda,rewards,use_teacher=True):
+    def PG_LOSS(self,batch,dropout,use_cuda,dis,use_teacher=True,rollout=1):
         '''
 
-            rewards: [batch]
+            dis: discriminator that provide batchclassify
             see http://karpathy.github.io/2016/05/31/rl/ for detail
 
         '''
@@ -195,16 +195,41 @@ class RVAE(nn.Module):
         [_,seq_len]=target.size()
         input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
         pg_loss=0
+        rewards=t.from_numpy(np.zeros((batch,seq_len-1))).float().cuda()
+        start=Variable(t.from_numpy(np.zeros((batch,1))).long().cuda())
         for i in range(1,seq_len):
             out,hidden=self.decoder.forward(input,z,0.1,hidden,True)
             # hidden.detach_()
+
+
             if use_teacher:
                 input=decode_input[:,i,:].contiguous().view(batch,1,embedding_size)
             else:
                 input=t.multinomial(F.softmax(out), 1)
                 input=self.embedding(input)
+
+            # do a rollout
+            for _ in range(rollout):
+                if i==1:
+                    sample=start.clone()
+                else:
+                    sample=t.cat((start,target[:,:i-1]),1)
+                #sorry for that
+                hidden_=(hidden[0].clone(),hidden[1].clone())
+
+                input_=input.clone()
+                res=[sample.data]
+                for j in range(i,seq_len):
+                    out_,hidden_=self.decoder.forward(input_,z,0.1,hidden_,True)
+                    input_=t.multinomial(F.softmax(out_),1)
+                    res+=[input_.data]
+                    input_=self.embedding(input_)
+                sample=t.cat(res,1)
+                reward=dis.batchClassify(sample[:,1:])
+                rewards[:,i-1]+=(reward/rollout).view(-1)
+                
             for j in range(batch):
-                pg_loss+=-F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j]
+                pg_loss+=-F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j,i-1]
         return pg_loss/batch
 
 

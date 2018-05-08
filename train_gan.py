@@ -111,7 +111,7 @@ print('pre-train dis finish')
 
 print('train gan')
 seq_data=batch_loader2.train_data
-BATCH_SIZE=1
+BATCH_SIZE=2
 gen_loss=[]
 dis_loss=[]
 test_input=batch_loader2.test_next_batch(5,raw=True)
@@ -139,7 +139,7 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # res=res.view(b,s)
     # encode_input,decode_input,_=batch_loader.to_input(batch)
 
-    loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,rewards,True)
+    loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,discriminator,True)
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()
