@@ -226,7 +226,7 @@ class RVAE(nn.Module):
                     input_=self.embedding(input_)
                 sample=t.cat(res,1)
                 reward=dis.batchClassify(sample[:,1:])
-                print(reward)
+                # print(reward)
                 rewards[:,i-1]+=(reward/rollout).view(-1)
                 
             for j in range(batch):
