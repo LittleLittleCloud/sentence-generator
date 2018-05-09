@@ -258,10 +258,10 @@ class RVAE(nn.Module):
                 loss[j]+=F.log_softmax(out)[j][word[j]]
         
         res=t.cat(res,1)
-        rewards=dis.batchClassify(res).cpu().numpy().reshape(-1)
+        rewards=dis.batchClassify(res).cpu().numpy().reshape(-1).tolist()
         if output:
             print("rewards: ",rewards)
-        rewards=np.log(rewards).tolist()
+        # rewards=np.log(rewards).tolist()
         loss=[x*rewards[i] for i,x in enumerate(loss)]
         
         loss=sum(loss)/batch
