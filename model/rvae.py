@@ -230,7 +230,7 @@ class RVAE(nn.Module):
                 rewards[:,i-1]+=(reward/rollout).view(-1)
                 
             for j in range(batch):
-                pg_loss+=F.softmax(out,1)[j][target.data[j][i-1]]*rewards[j,i-1]
+                pg_loss+=F.log_softmax(out,1)[j][target.data[j][i-1]]*rewards[j,i-1]
         return -pg_loss/batch
 
     def SAMPLE_PG_LOSS(self,batch,max_len,use_cuda,dis,rollout=1,output=True):
