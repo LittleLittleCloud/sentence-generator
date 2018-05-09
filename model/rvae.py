@@ -233,6 +233,37 @@ class RVAE(nn.Module):
                 pg_loss+=F.softmax(out,1)[j][target.data[j][i-1]]*rewards[j,i-1]
         return -pg_loss/batch
 
+    def SAMPLE_PG_LOSS(self,batch,max_len,use_cuda,dis,rollout=1):
+        seed=Variable(t.rand(batch,self.params.latent_variable_size))
+        res=[]
+        decode_input=np.zeros((batch,1))
+        decode_input=Variable(t.from_numpy(decode_input)).long()
+        
+
+        if use_cuda:
+            seed=seed.cuda()
+            decode_input=decode_input.cuda()
+
+        decode_input=self.embedding(decode_input)
+        loss=[0]*batch
+        # hidden=F.relu(self.latent(seed)).view(-1,1,1,self.params.decode_rnn_size)
+        hidden=None
+        for i in range(max_len):
+            out, hidden=self.decoder.forward(decode_input,seed,0,hidden)
+            word=t.multinomial(F.softmax(out,1), 1)
+
+            res+=[word.data]
+            decode_input=self.embedding(word)
+            for j in range(batch):
+                loss[j]+=F.log_softmax(out)[j][word[j]]
+        
+        res=t.cat(res,1)
+        rewards=dis.batchClassify(res).cpu().numpy().reshape(-1)
+        rewards=np.log(rewards).tolist()
+        loss=[x*rewards[i] for i,x in enumerate(loss)]
+        
+        loss=sum(loss)/batch
+        return loss
 
 
     def sample(self,encode_input,use_cuda):

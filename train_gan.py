@@ -123,23 +123,24 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     if use_cuda:
         target=target.cuda()
     print('train generator')
-    encode_input,_,_=batch_loader.to_input(batch)
-    res=generator.sample(encode_input,use_cuda)
-    rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
-    print(rewards)
+    # encode_input,_,_=batch_loader.to_input(batch)
+    # res=generator.sample(encode_input,use_cuda)
+    # rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
+    # print(rewards)
     
-    [b,s]=res.size()
-    res=res.cpu().numpy()
-    encode_input=res.copy()
-    decode_input=np.concatenate((np.array([0]*b).reshape(b,-1),encode_input),1)
-    target=np.concatenate((encode_input,np.array([0]*b).reshape(b,-1)),1)
+    # [b,s]=res.size()
+    # res=res.cpu().numpy()
+    # encode_input=res.copy()
+    # decode_input=np.concatenate((np.array([0]*b).reshape(b,-1),encode_input),1)
+    # target=np.concatenate((encode_input,np.array([0]*b).reshape(b,-1)),1)
     
     # res=res.view(-1,v)
     # res=res.topk(1)[1]
     # res=res.view(b,s)
     # encode_input,decode_input,_=batch_loader.to_input(batch)
 
-    loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,discriminator,True)
+    # loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,discriminator,True)
+    loss=generator.SAMPLE_PG_LOSS(BATCH_SIZE,100,True,discriminator)
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()
@@ -148,19 +149,17 @@ for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
     # print('train discriminator')
     # for _round in range(1):
     #     #sample positive and negative samples
-    #     pos=batch_loader2.gen_positive_sample(1)
-    #     encode_input,_,_=batch_loader.to_input(pos[0])
-    #     neg=generator.sample(encode_input,use_cuda)
-    #     neg=neg.cpu().numpy().tolist()
-    #     # print(' '.join([preprocess.index_to_word[i] for i in neg[0]]))
+    #     pos=batch_loader2.gen_positive_sample(10)
+    #     neg=generator.random_sample_n(10,100,use_cuda)
+    #     print(' '.join([preprocess.index_to_word[i] for i in neg[0][:10]]))
 
     #     data=pos[0]+neg
     #     target=pos[1]+[0]*len(neg)
     #     index=np.arange(len(data))
     #     np.random.shuffle(index)
-    #     for i in range(0,len(data),32):
-    #         X=[data[_i] for _i in index[i:i+32]]
-    #         y=[target[_i] for _i in index[i:i+32]]
+    #     for i in range(0,len(data),10):
+    #         X=[data[_i] for _i in index[i:i+10]]
+    #         y=[target[_i] for _i in index[i:i+10]]
     #         max_len=max(len(x) for x in X)
 
     #         for i,line in enumerate(X):
