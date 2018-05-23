@@ -34,8 +34,8 @@ preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
 np.save('index2word',preprocess.index_to_word)
-params=Parameter(word_embed_size=100,encode_rnn_size=100,latent_variable_size=100,\
-            decode_rnn_size=100,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
+params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=1000,\
+            decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
 generator=RVAE(params)
 
@@ -53,7 +53,7 @@ if os.path.isfile(PRETRAIN_GEN_PATH):
 for i,batch in enumerate(batch_loader.train_next_batch(5)):
     break
     ce,kld,coef=generator.REC_LOSS(batch,0.2,use_cuda)
-    loss=77*ce+coef*kld
+    loss=79*ce+coef*kld
     gen_optimizer.zero_grad()
     loss.backward()
     gen_optimizer.step()

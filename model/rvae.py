@@ -10,8 +10,6 @@ import math
 class RVAE(nn.Module):
     def __init__(self,params):
         super(RVAE,self).__init__()
-        self.kl_weight=0
-
         self.encoder=Encoder(params)
         self.decoder=Decoder(params)
         self.logvar=nn.Linear(params.encode_rnn_size*2,params.latent_variable_size)
@@ -21,10 +19,9 @@ class RVAE(nn.Module):
         self.ranker=nn.Linear(params.latent_variable_size,1)
         # self.latent=nn.Linear(params.latent_variable_size,params.decode_rnn_size*2)
         self.latent=nn.Linear(params.encode_rnn_size*2,params.decode_rnn_size)
-        
-        self.i=Variable(t.FloatTensor(1),requires_grad=False)
+        self.i=1
         self.use_cuda=params.use_cuda
-        self.kl_weight=lambda i: (math.tanh((i - 30000)/10000) + 1)/2
+        self.kl_weight=lambda i: (math.tanh((i - 3000)/1000) + 1)/2
         
 
     def forward(self, encode_input,z=None,init_state=None):
@@ -47,10 +44,12 @@ class RVAE(nn.Module):
             logvar=self.logvar(final_hidden_state)  #make sure logvar in 
             mu=self.mu(final_hidden_state)
             std=t.exp(0.5*logvar)
-            z=Variable(std.data.new(std.size()).normal_())
-            # z=z*std+mu
+            e=Variable(t.rand(batch,self.params.latent_variable_size).normal_())
+            if use_cuda:
+                e=e.cuda()
+            z=mu+std*e
             # print(t.sum((std*z)**2,1))
-            z=mu+z*std
+            # z=mu#+z*std
 
             KLD=-0.5*t.sum(1+logvar-t.pow(mu,2)-t.exp(logvar),1)
             KLD=KLD.mean()
@@ -91,7 +90,7 @@ class RVAE(nn.Module):
         [batch,seq_len,embedding_size]=decode_input.size()
         
         if use_teacher:
-            out,_=self.decoder.forward(decode_input,z,0.1,hidden,True)
+            out,_=self.decoder.forward(decode_input,z,0.3,hidden,True)
         else:
             res=[]
             input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
@@ -104,7 +103,7 @@ class RVAE(nn.Module):
             out=Variable(t.cat(res,0),requires_grad=True)
         rec_loss=F.cross_entropy(out,target.view(-1))
         # print((out.view(-1).topk(1)[1]==target.view(-1)).data.cpu().numpy())
-        i=self.i.data.cpu().numpy()[0]           
+        i=self.i           
         self.i+=1
         return rec_loss,kld,self.kl_weight(i)
 
@@ -312,36 +311,63 @@ class RVAE(nn.Module):
                 decode_input=decode_input.cuda()
         return t.cat(res,1)
     
-    def random_sample(self,seq_len,use_cuda):
-        seed=Variable(t.rand(self.params.latent_variable_size),volatile=True)
-
+    def random_sample(self,seq_len,use_cuda,z=None,beam_search_k=1):
+        if z is None:
+            seed=Variable(t.rand(self.params.latent_variable_size),volatile=True)
+        else:
+            assert z.shape==(self.params.latent_variable_size,)
+            seed=Variable(t.from_numpy(z),volatile=True).float()
         seed=seed.view(1,-1)
-        res=[]
-        decode_input=np.array([[0]])
-        decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
+        res=[[0]*seq_len]*beam_search_k
+        decode_inputs=np.array([[0]]*beam_search_k)
+        decode_inputs=Variable(t.from_numpy(decode_inputs),volatile=True).long()
         
 
         if use_cuda:
             seed=seed.cuda()
-            decode_input=decode_input.cuda()
+            decode_inputs=decode_inputs.cuda()
 
-        decode_input=self.embedding(decode_input)
-        
+        decode_inputs=self.embedding(decode_inputs)
+        decode_inputs=decode_inputs.view(beam_search_k,1,1,self.params.word_embed_size)
+        probs=np.zeros(beam_search_k).reshape(beam_search_k,-1)
         # hidden=F.relu(self.latent(seed)).view(-1,1,1,self.params.decode_rnn_size)
-        hidden=None
+        hiddens=[None]*beam_search_k    
         for i in range(seq_len):
-            out, hidden=self.decoder.forward(decode_input,seed,0,hidden)
-            word=t.multinomial(F.softmax(out,1), 1).data.cpu().numpy()[0]
+            _probs=np.repeat(probs,beam_search_k,1) #[beam_search_k,beam_search_k]
+            _res=np.repeat(res,beam_search_k,0).reshape(beam_search_k,beam_search_k,-1)
+            _words=np.zeros((beam_search_k,beam_search_k))
+            for j,decode_input in enumerate(decode_inputs):
+                out, hiddens[j]=self.decoder.forward(decode_input,seed,0,hiddens[j])
+                out=F.softmax(out,1)
+                word=t.multinomial(out, beam_search_k,True).data.cpu().numpy()[0]
+                out=out.data.cpu().numpy()[0]
+                _probs[j]=_probs[j]-np.log(out[word])
+                # c=np.concatenate((_res[j],word.reshape(beam_search_k,-1)),axis=1)
+                _res[j,:,i]=word
+                _words[j]=word
+                # res[j]+=[word[0]]
+            _probs=_probs.reshape(-1)
+            _res=_res.reshape(beam_search_k*beam_search_k,-1)
+            _words=_words.reshape(-1)
+            index=np.argsort(_probs)[:beam_search_k]
 
-            #the end token
-            if word==1:
-                break
-            res+=[word[0]]
-            decode_input=np.array([word])
-            decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
+            new_hidden=[]
+            for j in range(beam_search_k):
+                new_hidden+=[hiddens[int(index[j]/beam_search_k)]]
+            hiddens=new_hidden
+
+            probs=_probs[index].reshape(beam_search_k,-1)
+            res=_res[index]
+            word=_words[index]
+            decode_inputs=np.array([word])
+            decode_inputs=Variable(t.from_numpy(decode_inputs),volatile=True).long()
             if use_cuda:
-                decode_input=decode_input.cuda()
-            decode_input=self.embedding(decode_input)
+                decode_inputs=decode_inputs.cuda()
+            decode_inputs=self.embedding(decode_inputs)
+            decode_inputs=decode_inputs.view(beam_search_k,1,1,self.params.word_embed_size)
+            
+        index=np.argmin(probs)
+        res=res[index]
         return res
 
     def random_sample_n(self,n,length,use_cuda):

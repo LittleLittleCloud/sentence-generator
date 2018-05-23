@@ -7,12 +7,12 @@ class Embedding(nn.Module):
         super(Embedding,self).__init__()
 
         self.params=params
-        # word_embed=np.load(self.params.embedding_path)
+        word_embed=np.load(self.params.embedding_path)
         # print(word_embed.shape)
         print(self.params.vocab_size,self.params.word_embed_size)
         # assert word_embed.shape==(self.params.vocab_size,self.params.word_embed_size)
         self.word_embed=nn.Embedding(self.params.vocab_size,self.params.word_embed_size)
-        # self.word_embed.weight=nn.Parameter(torch.from_numpy(word_embed).float(),requires_grad=False)
+        self.word_embed.weight=nn.Parameter(torch.from_numpy(word_embed).float())
 
 
     def forward(self, input):
