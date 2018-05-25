@@ -101,7 +101,7 @@ class RVAE(nn.Module):
                 input=t.multinomial(F.softmax(out,dim=1),1)
                 input=self.embedding(input)
             out=Variable(t.cat(res,0),requires_grad=True)
-        rec_loss=F.cross_entropy(out,target.view(-1))
+        rec_loss=F.cross_entropy(out,target.contiguous().view(-1))
         # print((out.view(-1).topk(1)[1]==target.view(-1)).data.cpu().numpy())
         i=self.i           
         self.i+=1

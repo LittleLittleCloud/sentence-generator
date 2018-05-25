@@ -12,16 +12,23 @@ import argparse
 parser=argparse.ArgumentParser(description='word2vec')
 parser.add_argument('--batch-size',type=int,default=28,metavar='BS')
 parser.add_argument('--ce-coef',type=float,default=150.0)
+parser.add_argument('--lr',type=float,default=1e-3)
+parser.add_argument('--latent-size',type=int,default=1000)
+parser.add_argument('--kld-coef',type=float,default=1.0)
+
 args=parser.parse_args()
 batch_size=args.batch_size
 ce_coef=args.ce_coef
+lr=args.lr
+kld_coef=args.kld_coef
+latent_size=args.latent_size
 embedding_model=KeyedVectors.load_word2vec_format('embedding.bin')
 
 #load data
 data=0
 with open('train','r',encoding='utf-8') as f:
     data=f.readlines()
-
+data=[s[:-1] for s in data]
 
 preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
@@ -30,13 +37,13 @@ input=preprocess.to_sequence(data)
 
 batch_loader=Batch(input,0.7)
 
-params=Parameter(word_embed_size=300,encode_rnn_size=1000,latent_variable_size=1200,\
+params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=latent_size,\
             decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=True)
 model=RVAE(params)
 model=model.cuda()
 if os.path.isfile("PRETRAIN_GEN_PATH0"):
     model.load_state_dict(t.load("PRETRAIN_GEN_PATH0"))
-optimizer=Adam(model.learnable_parameters(), 1e-5)
+optimizer=Adam(model.learnable_parameters(), lr)
 
 use_cuda=t.cuda.is_available()
 ce_list=[]
@@ -47,15 +54,15 @@ test_batch=batch_loader.test_next_batch(batch_size)
 for _ in range(50):
     for i,batch in enumerate(batch_loader.train_next_batch(batch_size)):
         if i%101==0:
-            sample=batch[0][0,:].reshape(1,-1)
-            sentence=model.sample(sample,use_cuda)[0]
+            # sample=batch[0][0,:].reshape(1,-1)
+            sentence=model.random_sample(1,50,use_cuda,3)[0]
             sentence=[preprocess.index_to_word[i] for i in sentence]
             # s=[preprocess.index_to_word[i] for i in sample[0]]
             # print('origin',' '.join(s))
             print('sample',' '.join(sentence))
-        use_teacher=np.random.rand()>-0.3
-        ce,kld,coef=model.REC_LOSS(batch,0.3,use_cuda,use_teacher)
-        loss=ce_coef*ce+coef*kld#+coef*reencode_loss
+        use_teacher=True
+        ce,kld,coef=model.REC_LOSS(batch,0,use_cuda,use_teacher)
+        loss=ce_coef*ce+kld_coef*coef*kld#+coef*reencode_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
