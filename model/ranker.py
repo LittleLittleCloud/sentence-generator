@@ -74,7 +74,7 @@ class Ranker(nn.Module):
         return [batch]
 
         '''
-        input=Variable(input,volatile=True)
+        input=Variable(input,volatile=True).long()
         return self.forward(input,dropout).data
 
     def validater(self,loss_f):

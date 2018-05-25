@@ -12,7 +12,7 @@ class Batch:
 
         self.train_index=self.index[:train_len]
         self.test_index=self.index[train_len:]
-    
+        self.max_len=500
     def train_next_batch(self,batch_size,shuffle=True,index=False,data=None):
         assert batch_size<=len(self.train_index)
         if data:
@@ -54,9 +54,9 @@ class Batch:
 
             assert decode_input.shape==(encode_input.shape[0],encode_input.shape[1]+1)
             if index:
-                yield encode_input,decode_input,target,(start,end)
+                yield encode_input[:,:self.max_len],decode_input[:,:self.max_len],target[:,:self.max_len],(start,end)
             else:
-                yield encode_input,decode_input,target,real_len
+                yield encode_input[:,:self.max_len],decode_input[:,:self.max_len],target[:,:self.max_len],real_len
 
     
     def test_next_batch(self,batch_size):
@@ -80,7 +80,7 @@ class Batch:
             decode_input=np.array(decode_input)
 
             assert decode_input.shape==(encode_input.shape[0],1)
-            yield encode_input,decode_input
+            yield encode_input[:,:self.max_len],decode_input
 
     def to_input(self,data):
         '''
@@ -108,7 +108,7 @@ class Batch:
             target[i]=line+[2]*to_add
         target=np.array(target)
 
-        return encode_input,decode_input,target
+        return encode_input[:,:self.max_len],decode_input[:,:self.max_len],target[:,:self.max_len]
 
 
 if __name__=='__main__':

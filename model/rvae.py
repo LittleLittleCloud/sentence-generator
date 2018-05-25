@@ -90,7 +90,7 @@ class RVAE(nn.Module):
         [batch,seq_len,embedding_size]=decode_input.size()
         
         if use_teacher:
-            out,_=self.decoder.forward(decode_input,z,0.3,hidden,True)
+            out,_=self.decoder.forward(decode_input,z,dropout,hidden,True)
         else:
             res=[]
             input=decode_input[:,0,:].contiguous().view(batch,1,embedding_size)
@@ -273,53 +273,30 @@ class RVAE(nn.Module):
         return loss
 
 
-    def sample(self,encode_input,use_cuda):
+    def sample(self,encode_input,use_cuda,beam_search_k=1):
         [batch,seq_len]=encode_input.shape
         encode_input=Variable(t.from_numpy(encode_input),volatile=True).long()
-        decode_input=np.array([0]*batch).reshape(batch,-1)
-        decode_input=Variable(t.from_numpy(decode_input),volatile=True).long()
-
         if use_cuda:
             #sorry
             encode_input=encode_input.cuda()
-            decode_input=decode_input.cuda()
-        res=[decode_input.view(batch,-1).data]
-        answer=encode_input.clone().view(seq_len,batch)
-        decode_input=self.embedding(decode_input)
-        hidden,_,z,_=self.forward(encode_input)
-        [batch_size,_]=z.size()                
-        # hidden=F.relu(self.latent(z)).view(-1,1,batch_size,self.params.decode_rnn_size)
-        # hidden=None
-        for i in range(seq_len):
-            out, hidden=self.decoder.forward(decode_input,z,0.0,hidden)
-            # prediction=F.softmax(out,dim=1)
-            # words=[]
-            # for b in range(batch):
-                # word=np.random.choice(np.arange(self.params.vocab_size),p=prediction.data.cpu().numpy()[b])
-                # words+=[word]
-            # words=Variable(t.from_numpy(np.array(words))).long().view(batch,-1)
-            # if use_cuda:
-                # words=words.cuda()
-            words=t.multinomial(F.softmax(out,dim=1), 1)
-            #the end token
-            # if np.all(words.data.cpu().numpy()==2):
-            #     break
-            res+=[words.data]
-            decode_input=words
-            decode_input=self.embedding(decode_input)
-            if use_cuda:
-                decode_input=decode_input.cuda()
-        return t.cat(res,1)
+        
+        res=np.zeros((batch,seq_len),dtype=np.int32)
+        _,_,z,_=self.forward(encode_input)
+        z=z.data.cpu().numpy()
+        for b in range(batch):
+            _res=self.base_sample(seq_len,use_cuda,z[b],beam_search_k)
+            res[b]=_res
+        return res
     
-    def random_sample(self,seq_len,use_cuda,z=None,beam_search_k=1):
+    def base_sample(self,seq_len,use_cuda,z=None,beam_search_k=1):
         if z is None:
             seed=Variable(t.rand(self.params.latent_variable_size),volatile=True)
         else:
             assert z.shape==(self.params.latent_variable_size,)
             seed=Variable(t.from_numpy(z),volatile=True).float()
         seed=seed.view(1,-1)
-        res=[[0]*seq_len]*beam_search_k
-        decode_inputs=np.array([[0]]*beam_search_k)
+        res=[[0]*seq_len]*beam_search_k #[beam_search_k, seq_len]    
+        decode_inputs=np.array([[0]]*beam_search_k) #[beam_search_k,1]
         decode_inputs=Variable(t.from_numpy(decode_inputs),volatile=True).long()
         
 
@@ -370,17 +347,17 @@ class RVAE(nn.Module):
         res=res[index]
         return res
 
-    def random_sample_n(self,n,length,use_cuda):
+    def random_sample(self,n,length,use_cuda,beam_search_k=1):
         '''
 
             n: sample n
             return results [n,seq_len]
 
         '''
-        results=[]
-        for _ in range(n):
-            results+=[self.random_sample(length,use_cuda)]
-        return results
+        res=np.zeros((n,length),dtype=np.int32)
+        for b in range(n):
+            res[b]=self.base_sample(length,use_cuda,None,beam_search_k)
+        return res
 
 
 

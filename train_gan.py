@@ -28,8 +28,9 @@ use_cuda=t.cuda.is_available()
 #step 1 
 #pre-train generater
 
-with open('train','r',encoding='utf-8') as f:
-    data=f.readlines()
+# with open('train','r',encoding='utf-8') as f:
+#     data=f.readlines()
+data=data[:,0]
 preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
@@ -42,7 +43,7 @@ generator=RVAE(params)
 if use_cuda:
     generator=generator.cuda()
     
-gen_optimizer=Adam(generator.learnable_parameters(), 1e-3)
+gen_optimizer=Adam(generator.learnable_parameters(), 1e-4)
 
 test_batch=batch_loader.test_next_batch(1)
 
@@ -50,24 +51,29 @@ if os.path.isfile(PRETRAIN_GEN_PATH):
     print('find PRETRAINED_GEN_FILE')
     generator.load_state_dict(t.load(PRETRAIN_GEN_PATH))
 #useless
-for i,batch in enumerate(batch_loader.train_next_batch(5)):
-    break
-    ce,kld,coef=generator.REC_LOSS(batch,0.2,use_cuda)
-    loss=79*ce+coef*kld
-    gen_optimizer.zero_grad()
-    loss.backward()
-    gen_optimizer.step()
-    # loss.detach_()
-    if i%10==0:
-        print('ten step: ce:{}, kld:{} '.format(ce,kld))
-    del loss,ce,kld
+for _ in range(1):
+    for i,batch in enumerate(batch_loader.train_next_batch(5)):
+        print(batch[0].shape)
+        ce,kld,coef=generator.REC_LOSS(batch,0.2,use_cuda)
+        loss=79*ce+kld
+        gen_optimizer.zero_grad()
+        loss.backward()
+        gen_optimizer.step()
+        # loss.detach_()
+        if i%100==0:
+            print('ten step: ce:{}, kld:{} '.format(ce,kld))
+            sentence=generator.random_sample(1,500,use_cuda,5)[0]
+            sentence=[preprocess.index_to_word[i] for i in sentence]
+            print('sample',' '.join(sentence))
+            t.save(generator.state_dict(),PRETRAIN_GEN_PATH)
+        del loss,ce,kld
 
 
 
 #step2
 #pre-train discriminator
 params=Parameter2(vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',\
-                    embedding_size=100,ranker_hidden_size=32,dropout=0.2)
+                    embedding_size=300,ranker_hidden_size=300,dropout=0.2)
 discriminator=Ranker(params)
 if use_cuda:
     discriminator=discriminator.cuda()
@@ -86,20 +92,20 @@ if os.path.isfile(PRETRAIN_DIS_PATH):
     print('find PRETRAINED_DIS_FILE')
     discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
 
-# for _ in range(1):
-#     test_batch=batch_loader2.test_next_batch(10)
-#     for i,batch in enumerate(batch_loader2.train_next_batch((10))):
-#         loss=train_step(batch,t.cuda.is_available())
-#         dis_optimizer.zero_grad()
-#         loss.backward()
-#         dis_optimizer.step()
-#         loss_lst+=[loss.data]
-#         if i%100==0:
-#             test=next(test_batch)
-#             test_loss=validate(test,t.cuda.is_available())
-#             print("train: ",sum(loss_lst[-100:])/100)
-#             print("test: ",test_loss)
-#             t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
+for _ in range(1):
+    test_batch=batch_loader2.test_next_batch(10)
+    for i,batch in enumerate(batch_loader2.train_next_batch((10))):
+        loss=train_step(batch,t.cuda.is_available())
+        dis_optimizer.zero_grad()
+        loss.backward()
+        dis_optimizer.step()
+        loss_lst+=[loss.data]
+        if i%100==0:
+            test=next(test_batch)
+            test_loss=validate(test,t.cuda.is_available())
+            print("train: ",sum(loss_lst[-100:])/100)
+            print("test: ",test_loss)
+            t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
             
 
 print('pre-train dis finish')
@@ -143,7 +149,7 @@ for _ in range(10):
 
         # loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,discriminator,True)
         for _ in range(100):
-            loss=generator.SAMPLE_PG_LOSS(encode_input,100,True,discriminator,True)
+            loss=generator.SAMPLE_PG_LOSS(encode_input,100,True,discriminator,False)
             gen_optimizer.zero_grad()
             loss.backward()
             gen_optimizer.step()
@@ -152,11 +158,11 @@ for _ in range(10):
         print('train discriminator')
         for _round in range(1):
             #sample positive and negative samples
-            pos=batch_loader2.gen_positive_sample(10)
-            neg=generator.random_sample_n(10,100,use_cuda)
-            print(' '.join([preprocess.index_to_word[i] for i in neg[0][:10]]))
+            pos=batch_loader2.gen_positive_sample(100)
+            neg=generator.random_sample(10,100,use_cuda,5)
+            print(' '.join([preprocess.index_to_word[i] for i in neg[0]]))
 
-            data=pos[0]+neg
+            data=pos[0]+neg.tolist()
             target=pos[1]+[0]*len(neg)
             index=np.arange(len(data))
             np.random.shuffle(index)
@@ -197,13 +203,14 @@ for _ in range(10):
                 input=next(test_input)
             encode_input,_,_=batch_loader.to_input(input[0])
 
-            res=generator.sample(encode_input,use_cuda)
+            res=generator.sample(encode_input,use_cuda,beam_search_k=5)
             # res=res.view(b,-1)
+            res=t.from_numpy(res).cuda()
             y=discriminator.batchClassify(res,use_cuda=True).view(-1).cpu().numpy()
             loss=((y-input[1])**2).mean()
             print('---SAMPLE LOSS---\n {}'.format(loss))
             print('-------------')
-            print(' '.join([preprocess.index_to_word[i] for i in res[0][:10]]))
+            print(' '.join([preprocess.index_to_word[i] for i in res[0]]))
             
             
             # save model
