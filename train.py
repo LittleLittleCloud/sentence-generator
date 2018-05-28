@@ -67,7 +67,7 @@ for _ in range(epoch):
             print('sample',' '.join(sentence))
         use_teacher=True
         ce,kld,coef=model.REC_LOSS(batch,0.3,use_cuda,use_teacher)
-        loss=ce_coef*ce+kld_coef*kld#+coef*reencode_loss
+        loss=ce_coef*ce+coef*kld_coef*kld#+coef*reencode_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

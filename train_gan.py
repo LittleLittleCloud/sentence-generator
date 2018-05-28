@@ -13,6 +13,24 @@ from model.ranker import Ranker
 import os
 import pandas as pd
 from torch.autograd import Variable
+import argparse
+
+parser=argparse.ArgumentParser(description='word2vec')
+parser.add_argument('--batch-size',type=int,default=28,metavar='BS')
+parser.add_argument('--epoch',type=int,default=1)
+parser.add_argument('--g-step',type=int,default=1)
+parser.add_argument('--d-step',type=int,default=1)
+parser.add_argument('--pretrain-d-step',type=int,default=1)
+parser.add_argument('--pretrain-g-step',type=int,default=1)
+
+args=parser.parse_args()
+BATCH_SIZE=args.batch_size 
+epoch=args.epoch
+g_step=args.g_step 
+d_step=args.d_step 
+pretrain_d_step=args.pretrain_d_step 
+pretrain_g_step=args.pretrain_g_step 
+
 
 DATA_PATH='./data/event_score.csv'
 WORD2VEC='../sentence generator/embedding.bin'
@@ -51,7 +69,7 @@ if os.path.isfile(PRETRAIN_GEN_PATH):
     print('find PRETRAINED_GEN_FILE')
     generator.load_state_dict(t.load(PRETRAIN_GEN_PATH))
 #useless
-for _ in range(0):
+for _ in range(pretrain_g_step):
     for i,batch in enumerate(batch_loader.train_next_batch(5)):
         print(batch[0].shape)
         ce,kld,coef=generator.REC_LOSS(batch,0.2,use_cuda)
@@ -92,7 +110,7 @@ if os.path.isfile(PRETRAIN_DIS_PATH):
     print('find PRETRAINED_DIS_FILE')
     discriminator.load_state_dict(t.load(PRETRAIN_DIS_PATH))
 
-for _ in range(1):
+for _ in range(pretrain_d_step):
     test_batch=batch_loader2.test_next_batch(10)
     for i,batch in enumerate(batch_loader2.train_next_batch((10))):
         loss=train_step(batch,t.cuda.is_available())
@@ -116,22 +134,21 @@ print('pre-train dis finish')
 # train gan
 #first train the generator
 #then train the discriminator
-
+ce_lst=np.load("ce_list.npy").tolist()
 print('train gan')
 seq_data=batch_loader2.train_data
-BATCH_SIZE=5
 gen_loss=[]
 dis_loss=[]
+pg_lst=[]
 test_input=batch_loader2.test_next_batch(5,raw=True)
-for _ in range(10):
+for _ in range(epoch):
     for round,i in enumerate(range(0,len(seq_data),BATCH_SIZE)):
 
-        batch=seq_data[i:i+BATCH_SIZE]
         # target=t.from_numpy(np.array(batch_loader2.train_label[i:i+BATCH_SIZE])).float()
         # if use_cuda:
             # target=target.cuda()
         print('train generator')
-        encode_input,decode_input,target=batch_loader.to_input(batch)
+
         # res=generator.sample(encode_input,use_cuda)
         # rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
         # print(rewards)
@@ -148,11 +165,15 @@ for _ in range(10):
         # encode_input,decode_input,_=batch_loader.to_input(batch)
 
         # loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,discriminator,True)
-        for _ in range(5):
+        for _ in range(g_step):
+            batch=seq_data[i:i+BATCH_SIZE]        
+            encode_input,decode_input,target=batch_loader.to_input(batch)
             pg_loss=generator.SAMPLE_PG_LOSS(encode_input,100,True,discriminator,True)
             rec_batch=[encode_input,decode_input,target,123]
             ce,kld,_=generator.REC_LOSS(rec_batch,0.3,use_cuda)
             loss=pg_loss+ce+0.01*kld
+            ce_lst+=[ce.data]
+            pg_lst+=[pg_loss.data]
             print(pg_loss.data,ce.data,kld.data)
             gen_optimizer.zero_grad()
             loss.backward()
@@ -160,7 +181,7 @@ for _ in range(10):
             gen_loss+=[loss.data]
 
         print('train discriminator')
-        for _round in range(1):
+        for _round in range(d_step):
             #sample positive and negative samples
             pos=batch_loader2.gen_positive_sample(100)
             neg=generator.random_sample(10,300,use_cuda,1)
@@ -216,7 +237,8 @@ for _ in range(10):
             print('-------------')
             print(' '.join([preprocess.index_to_word[i] for i in res[0]]))
             
-            
+            np.save("ce",ce_lst)
+            np.save("pg",pg_lst)
             # save model
             t.save(discriminator.state_dict(),PRETRAIN_DIS_PATH)
             t.save(generator.state_dict(),PRETRAIN_GEN_PATH)
