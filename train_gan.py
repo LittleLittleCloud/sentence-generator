@@ -17,7 +17,7 @@ from torch.autograd import Variable
 DATA_PATH='./data/event_score.csv'
 WORD2VEC='../sentence generator/embedding.bin'
 PRETRAIN_DIS_PATH='PRETRAIN_DIS_PATH'
-PRETRAIN_GEN_PATH='PRETRAIN_GEN_PATH'
+PRETRAIN_GEN_PATH='PRETRAIN_GEN_PATH0'
 embedding_model=KeyedVectors.load_word2vec_format(WORD2VEC)
 data=pd.read_csv(DATA_PATH,encoding='utf-8').dropna().values[:,[1,2]]
 batch_loader2=Batch2(data,0.9,embedding_model.wv.index2word)
@@ -35,7 +35,7 @@ preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 batch_loader=Batch(input,0.7)
 np.save('index2word',preprocess.index_to_word)
-params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=1000,\
+params=Parameter(word_embed_size=300,encode_rnn_size=600,latent_variable_size=600,\
             decode_rnn_size=600,vocab_size=preprocess.vocab_size,embedding_path='embedding.npy',use_cuda=use_cuda)
 
 generator=RVAE(params)
@@ -51,11 +51,11 @@ if os.path.isfile(PRETRAIN_GEN_PATH):
     print('find PRETRAINED_GEN_FILE')
     generator.load_state_dict(t.load(PRETRAIN_GEN_PATH))
 #useless
-for _ in range(1):
+for _ in range(0):
     for i,batch in enumerate(batch_loader.train_next_batch(5)):
         print(batch[0].shape)
         ce,kld,coef=generator.REC_LOSS(batch,0.2,use_cuda)
-        loss=79*ce+kld
+        loss=ce#+kld
         gen_optimizer.zero_grad()
         loss.backward()
         gen_optimizer.step()
@@ -119,7 +119,7 @@ print('pre-train dis finish')
 
 print('train gan')
 seq_data=batch_loader2.train_data
-BATCH_SIZE=2
+BATCH_SIZE=5
 gen_loss=[]
 dis_loss=[]
 test_input=batch_loader2.test_next_batch(5,raw=True)
@@ -131,7 +131,7 @@ for _ in range(10):
         # if use_cuda:
             # target=target.cuda()
         print('train generator')
-        encode_input,_,_=batch_loader.to_input(batch)
+        encode_input,decode_input,target=batch_loader.to_input(batch)
         # res=generator.sample(encode_input,use_cuda)
         # rewards=discriminator.batchClassify(res,use_cuda).view(-1) #[b]
         # print(rewards)
@@ -148,8 +148,12 @@ for _ in range(10):
         # encode_input,decode_input,_=batch_loader.to_input(batch)
 
         # loss=generator.PG_LOSS((encode_input,decode_input,target),0,use_cuda,discriminator,True)
-        for _ in range(100):
-            loss=generator.SAMPLE_PG_LOSS(encode_input,100,True,discriminator,False)
+        for _ in range(5):
+            pg_loss=generator.SAMPLE_PG_LOSS(encode_input,100,True,discriminator,True)
+            rec_batch=[encode_input,decode_input,target,123]
+            ce,kld,_=generator.REC_LOSS(rec_batch,0.3,use_cuda)
+            loss=pg_loss+ce+0.01*kld
+            print(pg_loss.data,ce.data,kld.data)
             gen_optimizer.zero_grad()
             loss.backward()
             gen_optimizer.step()
@@ -159,7 +163,7 @@ for _ in range(10):
         for _round in range(1):
             #sample positive and negative samples
             pos=batch_loader2.gen_positive_sample(100)
-            neg=generator.random_sample(10,100,use_cuda,5)
+            neg=generator.random_sample(10,300,use_cuda,1)
             print(' '.join([preprocess.index_to_word[i] for i in neg[0]]))
 
             data=pos[0]+neg.tolist()

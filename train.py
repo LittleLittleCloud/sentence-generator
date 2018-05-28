@@ -8,12 +8,13 @@ import numpy as np
 import torch as t
 import os
 import argparse
+import pandas as pd
 
 parser=argparse.ArgumentParser(description='word2vec')
 parser.add_argument('--batch-size',type=int,default=28,metavar='BS')
 parser.add_argument('--ce-coef',type=float,default=150.0)
 parser.add_argument('--lr',type=float,default=1e-3)
-parser.add_argument('--latent-size',type=int,default=1000)
+parser.add_argument('--latent-size',type=int,default=600)
 parser.add_argument('--kld-coef',type=float,default=1.0)
 
 args=parser.parse_args()
@@ -23,13 +24,14 @@ lr=args.lr
 kld_coef=args.kld_coef
 latent_size=args.latent_size
 embedding_model=KeyedVectors.load_word2vec_format('embedding.bin')
-
+print(batch_size)
 #load data
 data=0
-with open('train','r',encoding='utf-8') as f:
-    data=f.readlines()
-data=[s[:-1] for s in data]
-
+# with open('train','r',encoding='utf-8') as f:
+#     data=f.readlines()
+# data=[s[:-1] for s in data]
+DATA_PATH='./data/event_score.csv'
+data=pd.read_csv(DATA_PATH,encoding='utf-8').dropna().values[:,1].reshape(-1)
 preprocess=Preprocess(embedding_model)
 input=preprocess.to_sequence(data)
 # embedding=preprocess.embedding()
@@ -61,15 +63,15 @@ for _ in range(50):
             # print('origin',' '.join(s))
             print('sample',' '.join(sentence))
         use_teacher=True
-        ce,kld,coef=model.REC_LOSS(batch,0,use_cuda,use_teacher)
-        loss=ce_coef*ce+kld_coef*coef*kld#+coef*reencode_loss
+        print(batch[0].shape)
+        ce,kld,coef=model.REC_LOSS(batch,0.3,use_cuda,use_teacher)
+        loss=ce_coef*ce+kld_coef*kld#+coef*reencode_loss
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         ce_list+=[ce.data]
         kld_list+=[kld.data]
         if i%100==0:
-
             print('100 step: ce:{}, kld:{}, kld_coef:{} '\
             .format(sum(ce_list[-100:])/100,sum(kld_list[-100:])/100,coef))
             t.save(model.state_dict(),"PRETRAIN_GEN_PATH0")
